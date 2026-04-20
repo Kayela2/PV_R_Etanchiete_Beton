@@ -1,0 +1,28 @@
+import { useState, useEffect } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import SplashScreen    from "../screens/SplashScreen";
+import HomeScreen      from "../screens/HomeScreen";
+import PvFormLayout    from "../screens/pv/PvFormLayout";
+import PvDetailScreen  from "../screens/PvDetailScreen";
+
+const AppNavigator = () => {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash) return <SplashScreen />;
+
+  return (
+    <Routes>
+      <Route path="/"          element={<HomeScreen />} />
+      <Route path="/pv/:id"    element={<PvDetailScreen />} />
+      <Route path="/pv-form/*" element={<PvFormLayout />} />
+      <Route path="*"          element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
+
+export default AppNavigator;
