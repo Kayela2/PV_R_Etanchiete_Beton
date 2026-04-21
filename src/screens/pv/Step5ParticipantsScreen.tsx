@@ -1,7 +1,7 @@
 // src/screens/pv/Step5ParticipantsScreen.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Trash2 } from "lucide-react";
 import { Input } from "../../components/ui";
 import { ConfirmModal, SignatureCanvas } from "../../components/shared";
 import { usePvFormStore } from "../../store";
@@ -42,15 +42,13 @@ const Step5ParticipantsScreen = () => {
   // ── État participants ──────────────────────────────────────────────────────
   const [participants, setParticipants] = useState<LocalParticipant[]>(() => {
     const saved = step5.participants ?? [];
-    if (saved.length > 0) {
-      return saved.map((p) => ({
-        id: p.id,
-        titre: p.titre ?? "",
-        nom: p.nom,
-        signature: p.signature ?? null,
-      }));
-    }
-    return [newParticipant()];
+    return saved.map((p) => ({
+      id: p.id,
+      titre: p.titre ?? "",
+      nom: p.nom,
+      signature: p.signature ?? null,
+    }));
+    // démarre vide — ajout manuel via le bouton
   });
 
   // ── Autres champs ──────────────────────────────────────────────────────────
@@ -68,19 +66,28 @@ const Step5ParticipantsScreen = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // ── Condition pour autoriser l'ajout de participants ──────────────────────
-  const smacComplete = nomSmac.trim() !== "" && signatureSmac !== null;
-  const lastParticipantComplete = () => {
-    const last = participants[participants.length - 1];
-    return last.nom.trim() !== "" && last.signature !== null;
-  };
-  const canAddParticipant = smacComplete && lastParticipantComplete();
+  // ── Conditions d'affichage progressif ────────────────────────────────────
+  const nomFilled      = nomSmac.trim() !== "";
+  const smacComplete   = nomFilled && signatureSmac !== null;
+
+  const participantComplete = (p: LocalParticipant) =>
+    p.nom.trim() !== "" && p.signature !== null;
 
   // ── Handlers participants ──────────────────────────────────────────────────
   const addParticipant = () => {
-    if (participants.length < MAX_PARTICIPANTS && canAddParticipant) {
+    if (participants.length < MAX_PARTICIPANTS) {
       setParticipants((prev) => [...prev, newParticipant()]);
     }
+  };
+
+  const removeParticipant = (id: string) => {
+    setParticipants((prev) => prev.filter((p) => p.id !== id));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`${id}_nom`];
+      delete next[`${id}_signature`];
+      return next;
+    });
   };
 
   const updateField = (
@@ -185,8 +192,9 @@ const Step5ParticipantsScreen = () => {
             Participants
           </p>
 
-          {/* ── Champs SMAC obligatoires ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12,
+          {/* ── Champs SMAC ── */}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 12,
             padding: 12, backgroundColor: "#F9FAFB", borderRadius: 12,
             border: "1px solid #E5E7EB",
           }}>
@@ -214,20 +222,48 @@ const Step5ParticipantsScreen = () => {
               )}
             </div>
 
-            {/* Signature SMAC */}
-            <div>
+            {/* Signature SMAC — grisée jusqu'à nom rempli */}
+            <div style={{
+              opacity: nomFilled ? 1 : 0.4,
+              pointerEvents: nomFilled ? "auto" : "none",
+              transition: "opacity 0.2s",
+            }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#374151",
                 textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px",
               }}>
                 Signature SMAC *
               </p>
-              <SignatureCanvas
-                value={signatureSmac ?? undefined}
-                onChange={(base64) => {
-                  setSignatureSmac(base64);
-                  if (base64) setErrors((prev) => { const n = { ...prev }; delete n["signatureSmac"]; return n; });
-                }}
-              />
+              {/* Signature + bouton ajout côte à côte */}
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                  <SignatureCanvas
+                    value={signatureSmac ?? undefined}
+                    onChange={(base64) => {
+                      setSignatureSmac(base64);
+                      if (base64) setErrors((prev) => { const n = { ...prev }; delete n["signatureSmac"]; return n; });
+                    }}
+                  />
+                </div>
+                {smacComplete && participants.length === 0 && participants.length < MAX_PARTICIPANTS && (
+                  <button
+                    type="button"
+                    onClick={addParticipant}
+                    style={{
+                      flexShrink: 0,
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 4,
+                      border: "1.5px dashed #E3000F", borderRadius: 12,
+                      padding: "10px 10px", background: "none",
+                      cursor: "pointer", color: "#E3000F",
+                      fontSize: 11, fontWeight: 700, lineHeight: 1.3,
+                      textAlign: "center",
+                    }}
+                  >
+                    <UserPlus size={18} />
+                    Ajouter<br />participant
+                  </button>
+                )}
+              </div>
               {errors["signatureSmac"] && (
                 <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
                   {errors["signatureSmac"]}
@@ -236,53 +272,49 @@ const Step5ParticipantsScreen = () => {
             </div>
           </div>
 
-          {/* Cartes participants + bouton — visibles uniquement si SMAC complet */}
-          {smacComplete && participants.map((participant, index) => (
+          {/* ── Participants (affichés après ajout) ── */}
+          {participants.map((participant, index) => (
             <div
               key={participant.id}
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
+                display: "flex", flexDirection: "column", gap: 12,
                 paddingBottom: index < participants.length - 1 ? 20 : 0,
-                borderBottom:
-                  index < participants.length - 1
-                    ? "1px solid #F3F4F6"
-                    : "none",
+                borderBottom: index < participants.length - 1 ? "1px solid #F3F4F6" : "none",
               }}
             >
-              {/* Numéro du participant */}
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#E3000F",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Participant {index + 1}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#E3000F",
+                  textTransform: "uppercase", letterSpacing: "0.08em",
+                }}>
+                  Participant {index + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeParticipant(participant.id)}
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%",
+                    backgroundColor: "#FEE2E2", border: "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Trash2 size={13} color="#E3000F" />
+                </button>
+              </div>
 
-              {/* Titre (optionnel) */}
               <Input
                 label="Titre"
                 placeholder="Ex: Conducteur de travaux"
                 value={participant.titre}
-                onChange={(e) =>
-                  updateField(participant.id, "titre", e.target.value)
-                }
+                onChange={(e) => updateField(participant.id, "titre", e.target.value)}
               />
 
-              {/* Nom (requis) */}
               <div>
                 <Input
                   label="Nom du participant *"
                   placeholder="Jean Dupont"
                   value={participant.nom}
-                  onChange={(e) =>
-                    updateField(participant.id, "nom", e.target.value)
-                  }
+                  onChange={(e) => updateField(participant.id, "nom", e.target.value)}
                 />
                 {errors[`${participant.id}_nom`] && (
                   <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
@@ -291,42 +323,47 @@ const Step5ParticipantsScreen = () => {
                 )}
               </div>
 
-              {/* Signature */}
-              <div>
-                <SignatureCanvas
-                  value={participant.signature ?? undefined}
-                  onChange={(base64) => {
-                    handleSignatureChange(participant.id, base64);
-                    if (base64) setErrors((prev) => { const n = { ...prev }; delete n[`${participant.id}_signature`]; return n; });
-                  }}
-                />
-                {errors[`${participant.id}_signature`] && (
-                  <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
-                    {errors[`${participant.id}_signature`]}
-                  </p>
+              {/* Signature + bouton ajout participant suivant côte à côte */}
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                  <SignatureCanvas
+                    value={participant.signature ?? undefined}
+                    onChange={(base64) => {
+                      handleSignatureChange(participant.id, base64);
+                      if (base64) setErrors((prev) => { const n = { ...prev }; delete n[`${participant.id}_signature`]; return n; });
+                    }}
+                  />
+                  {errors[`${participant.id}_signature`] && (
+                    <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
+                      {errors[`${participant.id}_signature`]}
+                    </p>
+                  )}
+                </div>
+                {/* Bouton ajout suivant — uniquement sur le dernier participant complet */}
+                {index === participants.length - 1 &&
+                  participantComplete(participant) &&
+                  participants.length < MAX_PARTICIPANTS && (
+                  <button
+                    type="button"
+                    onClick={addParticipant}
+                    style={{
+                      flexShrink: 0,
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center", gap: 4,
+                      border: "1.5px dashed #E3000F", borderRadius: 12,
+                      padding: "10px 10px", background: "none",
+                      cursor: "pointer", color: "#E3000F",
+                      fontSize: 11, fontWeight: 700, lineHeight: 1.3,
+                      textAlign: "center",
+                    }}
+                  >
+                    <UserPlus size={18} />
+                    Ajouter<br />participant
+                  </button>
                 )}
               </div>
             </div>
           ))}
-
-          {/* Bouton ajouter — visible quand SMAC complet + dernier participant complet + < 3 */}
-          {smacComplete && lastParticipantComplete() && participants.length < MAX_PARTICIPANTS && (
-            <button
-              type="button"
-              onClick={addParticipant}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 8,
-                border: "1.5px dashed #E3000F",
-                borderRadius: 12, padding: "10px", background: "none",
-                cursor: "pointer", color: "#E3000F",
-                fontSize: 13, fontWeight: 600,
-              }}
-            >
-              <UserPlus size={16} />
-              Ajouter un participant ({participants.length}/{MAX_PARTICIPANTS})
-            </button>
-          )}
         </div>
 
         {/* ── Section Réception ── */}
