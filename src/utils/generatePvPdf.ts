@@ -2,12 +2,11 @@
 import jsPDF from "jspdf";
 import type { Pv, ConformiteValue } from "../types";
 import { AGENCES, ETABLISSEMENTS } from "../data/referentiel";
-import smacLogoUrl from "../assets/SmacLogo.png";
+import smacLogoUrl from "../assets/smac-white-without-bg.png";
 
-/** Charge une URL image et la retourne en data-URL base64 */
 async function fetchBase64(url: string): Promise<string> {
-  const res    = await fetch(url);
-  const blob   = await res.blob();
+  const res  = await fetch(url);
+  const blob = await res.blob();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload  = () => resolve(reader.result as string);
@@ -17,23 +16,26 @@ async function fetchBase64(url: string): Promise<string> {
 }
 
 // ── Constantes mise en page ──────────────────────────────────────────────────
-const PAGE_W   = 210;  // A4 mm
-const PAGE_H   = 297;
-const MARGIN   = 14;
-const COL_W    = PAGE_W - MARGIN * 2;
-const LINE_H   = 6;    // interligne normal
-const SMAC_RED: [number, number, number] = [227, 0, 15];
-const DARK:     [number, number, number] = [17, 24, 39];
-const GRAY:     [number, number, number] = [107, 114, 128];
-const WHITE:    [number, number, number] = [255, 255, 255];
-const GREEN:    [number, number, number] = [22, 163, 74];
+const PAGE_W  = 210;
+const PAGE_H  = 297;
+const MARGIN  = 14;
+const COL_W   = PAGE_W - MARGIN * 2;
+const LINE_H  = 6.5;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const RED:   [number, number, number] = [227, 0, 15];
+const DARK:  [number, number, number] = [17, 24, 39];
+const GRAY:  [number, number, number] = [107, 114, 128];
+const WHITE: [number, number, number] = [255, 255, 255];
+const GREEN: [number, number, number] = [22, 163, 74];
+const ROW_A: [number, number, number] = [249, 250, 251];   // fond lignes paires
+const BORDER:[number, number, number] = [229, 231, 235];
+
+// ── Helpers texte / conformité ────────────────────────────────────────────────
 const conformiteLabel = (v?: ConformiteValue) =>
   v === "conforme" ? "Conforme" : v === "non-conforme" ? "Non conforme" : "S/O";
 
 const conformiteColor = (v?: ConformiteValue): [number, number, number] =>
-  v === "conforme" ? GREEN : v === "non-conforme" ? SMAC_RED : GRAY;
+  v === "conforme" ? GREEN : v === "non-conforme" ? RED : GRAY;
 
 const formatDate = (iso?: string) => {
   if (!iso) return "—";
@@ -44,157 +46,249 @@ const formatDate = (iso?: string) => {
   } catch { return iso; }
 };
 
-// ── Classe helper pour le curseur Y ─────────────────────────────────────────
+// ── Curseur vertical ─────────────────────────────────────────────────────────
 class Cursor {
   y: number;
   doc: jsPDF;
-  constructor(doc: jsPDF, startY = MARGIN + 10) {
-    this.doc = doc;
-    this.y   = startY;
+  constructor(doc: jsPDF, startY = MARGIN) {
+    this.doc = doc; this.y = startY;
   }
-  /** Ajoute un saut de ligne */
   nl(h = LINE_H) { this.y += h; }
-  /** Vérifie si une nouvelle page est nécessaire */
   check(needed = 20) {
-    if (this.y + needed > PAGE_H - MARGIN) {
+    if (this.y + needed > PAGE_H - MARGIN - 10) {
       this.doc.addPage();
-      this.y = MARGIN + 6;
+      this.y = MARGIN + 4;
     }
   }
 }
 
-// ── En-tête de page ──────────────────────────────────────────────────────────
-function drawHeader(doc: jsPDF, pvId: string, logoBase64: string) {
-  const headerH = 26;
+// ── En-tête de page ───────────────────────────────────────────────────────────
+function drawHeader(doc: jsPDF, pv: Pv, logoBase64: string) {
+  const H = 32;
 
-  // Fond blanc
-  doc.setFillColor(...WHITE);
-  doc.rect(0, 0, PAGE_W, headerH, "F");
+  // Fond rouge pleine largeur
+  doc.setFillColor(...RED);
+  doc.rect(0, 0, PAGE_W, H, "F");
 
-  // Logo SMAC (gauche)
+  // Logo (blanc, gauche)
   try {
-    doc.addImage(logoBase64, "PNG", MARGIN, 4, 28, 16);
+    doc.addImage(logoBase64, "PNG", MARGIN, 5, 30, 18);
   } catch {
-    // fallback texte si logo invalide
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(...SMAC_RED);
-    doc.text("SMAC", MARGIN, 16);
+    doc.setTextColor(...WHITE);
+    doc.text("SMAC", MARGIN, 18);
   }
 
-  // Titre centré (en rouge)
+  // Titre principal
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...SMAC_RED);
-  doc.text("P.V DE RÉCEPTION SUPPORT BÉTON – ÉTANCHÉITÉ", PAGE_W / 2, 10, { align: "center" });
+  doc.setFontSize(9.5);
+  doc.setTextColor(...WHITE);
+  doc.text("P.V DE RÉCEPTION SUPPORT BÉTON – ÉTANCHÉITÉ", PAGE_W / 2, 11, { align: "center" });
+
+  // Référence PV
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(...DARK);
-  doc.text(pvId, PAGE_W / 2, 18, { align: "center" });
+  doc.setTextColor(255, 200, 200);
+  doc.text(`Réf. : ${pv.id}`, PAGE_W / 2, 19, { align: "center" });
 
-  // Date (droite)
-  const now = new Date().toLocaleDateString("fr-FR");
+  // Chantier
+  const chantier = pv.step1?.chantier ?? "—";
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  doc.setTextColor(...GRAY);
-  doc.text(now, PAGE_W - MARGIN, 11, { align: "right" });
-
-  // Ligne rouge séparatrice
-  doc.setFillColor(...SMAC_RED);
-  doc.rect(0, headerH, PAGE_W, 1.2, "F");
-}
-
-// ── Section titre ─────────────────────────────────────────────────────────────
-function sectionTitle(doc: jsPDF, cur: Cursor, label: string) {
-  cur.check(14);
-  doc.setFillColor(...SMAC_RED);
-  doc.rect(MARGIN, cur.y, 3, 6, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...DARK);
-  doc.text(label.toUpperCase(), MARGIN + 6, cur.y + 4.5);
-  cur.nl(10);
-}
-
-// ── Ligne clé–valeur ─────────────────────────────────────────────────────────
-function rowKV(doc: jsPDF, cur: Cursor, label: string, value: string, bold = false) {
-  cur.check(8);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...GRAY);
-  doc.text(label, MARGIN, cur.y);
-  doc.setFont("helvetica", bold ? "bold" : "normal");
-  doc.setTextColor(...DARK);
-  doc.text(value || "—", MARGIN + 55, cur.y);
-  // Trait séparateur
-  doc.setDrawColor(230, 232, 235);
-  doc.setLineWidth(0.2);
-  doc.line(MARGIN, cur.y + 2, MARGIN + COL_W, cur.y + 2);
-  cur.nl(LINE_H + 1);
-}
-
-// ── Ligne conformité ─────────────────────────────────────────────────────────
-function rowConformite(doc: jsPDF, cur: Cursor, label: string, value?: ConformiteValue) {
-  cur.check(8);
-  const lbl  = conformiteLabel(value);
-  const col  = conformiteColor(value);
-  const colW = 26;
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...GRAY);
-  doc.text(label, MARGIN, cur.y);
-
-  // Badge
-  const badgeX = MARGIN + COL_W - colW;
-  doc.setFillColor(...col);
-  doc.roundedRect(badgeX, cur.y - 3.5, colW, 5.5, 2, 2, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
   doc.setTextColor(...WHITE);
-  doc.text(lbl, badgeX + colW / 2, cur.y + 0.3, { align: "center" });
+  doc.text(chantier, PAGE_W / 2, 27, { align: "center" });
 
-  doc.setDrawColor(230, 232, 235);
-  doc.setLineWidth(0.2);
-  doc.line(MARGIN, cur.y + 2, MARGIN + COL_W, cur.y + 2);
-  cur.nl(LINE_H + 1);
+  // Date (coin droit)
+  const now = new Date().toLocaleDateString("fr-FR");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(255, 200, 200);
+  doc.text(now, PAGE_W - MARGIN, 11, { align: "right" });
 }
 
-// ── Photo en base64 ──────────────────────────────────────────────────────────
-function addPhoto(doc: jsPDF, cur: Cursor, base64: string, w = 40, h = 30) {
-  cur.check(h + 4);
-  try {
-    // jsPDF accepte directement les data-URL base64
-    const fmt = base64.startsWith("data:image/png") ? "PNG" : "JPEG";
-    doc.addImage(base64, fmt, MARGIN, cur.y, w, h);
-    cur.nl(h + 4);
-  } catch {
-    // Si l'image échoue, on continue sans
-    cur.nl(2);
+// ── Titre de section (bandeau sombre pleine largeur) ─────────────────────────
+function sectionTitle(doc: jsPDF, cur: Cursor, label: string) {
+  cur.check(18);
+  const bandH = 8;
+  doc.setFillColor(...DARK);
+  doc.rect(MARGIN, cur.y, COL_W, bandH, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...WHITE);
+  doc.text(label.toUpperCase(), MARGIN + 5, cur.y + 5.5);
+  cur.nl(bandH + 2);
+}
+
+// ── Ligne clé–valeur (fond alterné) ──────────────────────────────────────────
+let _rowIndex = 0;
+function resetRowIndex() { _rowIndex = 0; }
+
+function rowKV(
+  doc: jsPDF, cur: Cursor,
+  label: string, value: string,
+  bold = false,
+) {
+  const rowH = 7.5;
+  cur.check(rowH + 2);
+
+  if (_rowIndex % 2 === 0) {
+    doc.setFillColor(...ROW_A);
+    doc.rect(MARGIN, cur.y - 0.5, COL_W, rowH, "F");
   }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY);
+  doc.text(label, MARGIN + 3, cur.y + 5);
+
+  doc.setFont("helvetica", bold ? "bold" : "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...DARK);
+  doc.text(value || "—", MARGIN + 70, cur.y + 5);
+
+  _rowIndex++;
+  cur.nl(rowH);
 }
 
-// ── Grille de photos ─────────────────────────────────────────────────────────
-function photoGrid(doc: jsPDF, cur: Cursor, photos: { url: string }[]) {
+// ── Ligne conformité (fond alterné + badge coloré) ────────────────────────────
+function rowConformite(doc: jsPDF, cur: Cursor, label: string, value?: ConformiteValue) {
+  const rowH = 7.5;
+  cur.check(rowH + 2);
+
+  if (_rowIndex % 2 === 0) {
+    doc.setFillColor(...ROW_A);
+    doc.rect(MARGIN, cur.y - 0.5, COL_W, rowH, "F");
+  }
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY);
+  doc.text(label, MARGIN + 3, cur.y + 5);
+
+  const lbl   = conformiteLabel(value);
+  const color = conformiteColor(value);
+  const bW = lbl === "Non conforme" ? 28 : 22;
+  const bX = MARGIN + COL_W - bW - 3;
+
+  doc.setFillColor(...color);
+  doc.roundedRect(bX, cur.y + 0.5, bW, 5.5, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(...WHITE);
+  doc.text(lbl.toUpperCase(), bX + bW / 2, cur.y + 4.5, { align: "center" });
+
+  _rowIndex++;
+  cur.nl(rowH);
+}
+
+// ── Grille de photos ──────────────────────────────────────────────────────────
+function photoGrid(doc: jsPDF, cur: Cursor, photos: { url: string; caption?: string }[]) {
   if (!photos.length) return;
-  const pw = 40, ph = 30, gap = 4;
+  const pw = 42, ph = 32, gap = 5;
   const perRow = Math.floor(COL_W / (pw + gap));
   let col = 0;
-  const startY = cur.y;
 
   photos.forEach((p, i) => {
     if (i > 0 && i % perRow === 0) {
       cur.nl(ph + gap);
       col = 0;
     }
-    cur.check(ph + 4);
+    cur.check(ph + 6);
     try {
       const fmt = p.url.startsWith("data:image/png") ? "PNG" : "JPEG";
-      doc.addImage(p.url, fmt, MARGIN + col * (pw + gap), cur.y, pw, ph);
+      const x = MARGIN + col * (pw + gap);
+      doc.addImage(p.url, fmt, x, cur.y, pw, ph);
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.3);
+      doc.rect(x, cur.y, pw, ph);
     } catch { /* silencieux */ }
     col++;
   });
-  void startY;
-  cur.nl(ph + 4);
+  cur.nl(ph + gap);
+}
+
+// ── Bloc signature (boîte encadrée avec label) ────────────────────────────────
+function signatureBox(
+  doc: jsPDF, cur: Cursor,
+  titre: string, nom: string,
+  signatureBase64?: string,
+) {
+  const boxH = signatureBase64 ? 38 : 28;
+  cur.check(boxH + 6);
+
+  // Contour
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.4);
+  doc.rect(MARGIN, cur.y, COL_W, boxH);
+
+  // Label titre
+  doc.setFillColor(...ROW_A);
+  doc.rect(MARGIN, cur.y, COL_W, 8, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRAY);
+  doc.text(titre.toUpperCase(), MARGIN + 4, cur.y + 5.5);
+
+  // Nom
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...DARK);
+  doc.text(nom || "—", MARGIN + 4, cur.y + 15);
+
+  // Signature
+  if (signatureBase64) {
+    try {
+      const fmt = signatureBase64.startsWith("data:image/png") ? "PNG" : "JPEG";
+      doc.addImage(signatureBase64, fmt, MARGIN + 4, cur.y + 18, 60, 16);
+    } catch { /* silencieux */ }
+  }
+
+  cur.nl(boxH + 4);
+}
+
+// ── Grille de signatures côte à côte ─────────────────────────────────────────
+function signatureGrid(
+  doc: jsPDF, cur: Cursor,
+  participants: Array<{ titre?: string; nom: string; signature?: string }>,
+) {
+  const cols   = 2;
+  const colW   = (COL_W - 6) / cols;
+  const boxH   = 38;
+
+  for (let row = 0; row < Math.ceil(participants.length / cols); row++) {
+    cur.check(boxH + 6);
+    for (let c = 0; c < cols; c++) {
+      const idx = row * cols + c;
+      if (idx >= participants.length) break;
+      const p  = participants[idx];
+      const x  = MARGIN + c * (colW + 6);
+
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.3);
+      doc.rect(x, cur.y, colW, boxH);
+
+      doc.setFillColor(...ROW_A);
+      doc.rect(x, cur.y, colW, 7, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...GRAY);
+      doc.text((p.titre ?? "Participant").toUpperCase(), x + 3, cur.y + 5);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...DARK);
+      doc.text(p.nom || "—", x + 3, cur.y + 14);
+
+      if (p.signature) {
+        try {
+          const fmt = p.signature.startsWith("data:image/png") ? "PNG" : "JPEG";
+          doc.addImage(p.signature, fmt, x + 3, cur.y + 17, 50, 17);
+        } catch { /* silencieux */ }
+      }
+    }
+    cur.nl(boxH + 4);
+  }
 }
 
 // ── Construction interne du document ─────────────────────────────────────────
@@ -202,14 +296,15 @@ async function buildPvDoc(pv: Pv): Promise<{ doc: jsPDF; filename: string }> {
   const logoBase64 = await fetchBase64(smacLogoUrl).catch(() => "");
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const cur = new Cursor(doc, 30);
+  const cur = new Cursor(doc, 36);
 
   const agence        = AGENCES.find((a) => a.id === pv.step1?.agenceId);
   const etablissement = ETABLISSEMENTS.find((e) => e.id === pv.step1?.etablissementId);
 
-  drawHeader(doc, pv.id, logoBase64);
+  drawHeader(doc, pv, logoBase64);
 
   // ── 1. Informations générales ─────────────────────────────────────────────
+  resetRowIndex();
   sectionTitle(doc, cur, "Informations générales");
   rowKV(doc, cur, "Référence PV",       pv.id,                             true);
   rowKV(doc, cur, "Chantier",           pv.step1?.chantier ?? "—",         true);
@@ -223,137 +318,139 @@ async function buildPvDoc(pv: Pv): Promise<{ doc: jsPDF; filename: string }> {
   if (pv.step2?.natureTravaux)
     rowKV(doc, cur, "Nature des travaux",
       pv.step2.natureTravaux === "etancheite-beton" ? "Étanchéité sur béton" : "Autre support");
-  cur.nl(4);
+  rowKV(doc, cur, "Date de création",   formatDate(pv.createdAt));
+  cur.nl(5);
 
-  // ── 2. Réserves ──────────────────────────────────────────────────────────
-  if ((pv.step1?.reserves?.length ?? 0) > 0) {
-    sectionTitle(doc, cur, `Réserves (${pv.step1!.reserves!.length} / 8)`);
-    pv.step1!.reserves!.forEach((r, i) => {
-      cur.check(24);
+  // ── 2. Réserves ───────────────────────────────────────────────────────────
+  const reserves = pv.step1?.reserves ?? [];
+  if (reserves.length > 0) {
+    sectionTitle(doc, cur, `Réserves (${reserves.length} / 8)`);
+    reserves.forEach((r, i) => {
+      cur.check(28);
 
-      // Numéro + localisation
+      // Numéro de réserve
+      doc.setFillColor(...RED);
+      doc.rect(MARGIN, cur.y, COL_W, 7, "F");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(...SMAC_RED);
-      doc.text(`Réserve #${String(i + 1).padStart(2, "0")}`, MARGIN, cur.y);
-      cur.nl(5);
+      doc.setFontSize(8);
+      doc.setTextColor(...WHITE);
+      doc.text(
+        `Réserve #${String(i + 1).padStart(2, "0")}  —  ${r.localisation || "Sans localisation"}`,
+        MARGIN + 4, cur.y + 5,
+      );
+      cur.nl(9);
 
-      doc.setTextColor(...DARK);
-      doc.text(r.localisation || "Sans localisation", MARGIN, cur.y);
-      cur.nl(5);
-
+      // Détail
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(...GRAY);
-      const lines = doc.splitTextToSize(r.detail, COL_W);
-      doc.text(lines, MARGIN, cur.y);
-      cur.nl(lines.length * 4 + 2);
+      doc.setTextColor(...DARK);
+      const lines = doc.splitTextToSize(r.detail || "—", COL_W - 6);
+      doc.text(lines, MARGIN + 3, cur.y);
+      cur.nl(lines.length * 4.5 + 2);
 
-      if (r.photos.length > 0) {
-        photoGrid(doc, cur, r.photos);
-      }
+      // Photos
+      if (r.photos.length > 0) photoGrid(doc, cur, r.photos);
 
-      // Séparateur entre réserves
-      if (i < pv.step1!.reserves!.length - 1) {
-        doc.setDrawColor(...SMAC_RED);
+      // Séparateur (sauf dernier)
+      if (i < reserves.length - 1) {
+        doc.setDrawColor(...BORDER);
         doc.setLineWidth(0.3);
         doc.line(MARGIN, cur.y, MARGIN + COL_W, cur.y);
-        cur.nl(4);
+        cur.nl(5);
       }
     });
-    cur.nl(4);
+    cur.nl(5);
   }
 
-  // ── 3. État de surface ───────────────────────────────────────────────────
+  // ── 3. État de surface ────────────────────────────────────────────────────
   if (pv.step2?.etatSurface) {
+    resetRowIndex();
     sectionTitle(doc, cur, "État de surface");
     rowConformite(doc, cur, "Régularité du support", pv.step2.etatSurface.regulariteSupport);
     rowConformite(doc, cur, "Propreté du support",   pv.step2.etatSurface.propreteSupport);
     rowConformite(doc, cur, "Pente",                 pv.step2.etatSurface.pente);
-    cur.nl(4);
+    cur.nl(5);
   }
 
-  // ── 4. Support des relevés ───────────────────────────────────────────────
+  // ── 4. Support des relevés ────────────────────────────────────────────────
   if (pv.step2?.supportReleves) {
+    resetRowIndex();
     sectionTitle(doc, cur, "Support des relevés");
-    const r = pv.step2.supportReleves;
-    rowConformite(doc, cur, "Hauteur engravure",                  r.hauteurEngravure);
-    rowConformite(doc, cur, "Profondeur engravure",               r.profondeurEngravure);
-    rowConformite(doc, cur, "Protection de la tête des relevés",  r.protectionTeteReleves);
-    rowConformite(doc, cur, "Propreté du support des relevés",    r.propreteSupportReleves);
-    rowConformite(doc, cur, "Trémie / lanterneau",                r.tremiesLanterneaux);
-    rowConformite(doc, cur, "Eau pluviale",                       r.eauxPluviales);
-    rowConformite(doc, cur, "Ventilation",                        r.ventilation);
-    rowConformite(doc, cur, "Trop-plein",                         r.tropPleins);
-    rowConformite(doc, cur, "Joint de dilatation",                r.jointsDialatation);
-    if (r.autresEcartsObservations) {
+    const sr = pv.step2.supportReleves;
+    rowConformite(doc, cur, "Hauteur engravure",                 sr.hauteurEngravure);
+    rowConformite(doc, cur, "Profondeur engravure",              sr.profondeurEngravure);
+    rowConformite(doc, cur, "Protection de la tête des relevés", sr.protectionTeteReleves);
+    rowConformite(doc, cur, "Propreté du support des relevés",   sr.propreteSupportReleves);
+    rowConformite(doc, cur, "Trémie / lanterneau",               sr.tremiesLanterneaux);
+    rowConformite(doc, cur, "Eau pluviale",                      sr.eauxPluviales);
+    rowConformite(doc, cur, "Ventilation",                       sr.ventilation);
+    rowConformite(doc, cur, "Trop-plein",                        sr.tropPleins);
+    rowConformite(doc, cur, "Joint de dilatation",               sr.jointsDialatation);
+
+    if (sr.autresEcartsObservations) {
       cur.nl(2);
+      doc.setFillColor(...ROW_A);
+      doc.rect(MARGIN, cur.y, COL_W, 7, "F");
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setTextColor(...GRAY);
-      doc.text("Observations :", MARGIN, cur.y);
-      cur.nl(5);
+      doc.text("OBSERVATIONS", MARGIN + 3, cur.y + 5);
+      cur.nl(9);
       doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
       doc.setTextColor(...DARK);
-      const obsLines = doc.splitTextToSize(r.autresEcartsObservations, COL_W);
-      doc.text(obsLines, MARGIN, cur.y);
-      cur.nl(obsLines.length * 4 + 2);
+      const obsLines = doc.splitTextToSize(sr.autresEcartsObservations, COL_W - 6);
+      doc.text(obsLines, MARGIN + 3, cur.y);
+      cur.nl(obsLines.length * 4.5 + 4);
     }
-    cur.nl(4);
+    cur.nl(5);
   }
 
-  // ── 6. Participants & Signatures ─────────────────────────────────────────
-  if ((pv.step5?.participants?.length ?? 0) > 0) {
-    sectionTitle(doc, cur, "Participants");
-    pv.step5!.participants!.forEach((p, i) => {
-      cur.check(50);
-      if (p.titre) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(...GRAY);
-        doc.text(p.titre, MARGIN, cur.y);
-        cur.nl(4.5);
-      }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(...DARK);
-      doc.text(p.nom, MARGIN, cur.y);
-      cur.nl(5);
+  // ── 5. Signatures ─────────────────────────────────────────────────────────
+  const hasSmac = !!(pv.step5?.nomSmac);
+  const hasParticipants = (pv.step5?.participants?.length ?? 0) > 0;
 
-      if (p.signature) {
-        addPhoto(doc, cur, p.signature, 60, 24);
-      }
+  if (hasSmac || hasParticipants) {
+    sectionTitle(doc, cur, "Signatures");
 
-      if (i < pv.step5!.participants!.length - 1) {
-        doc.setDrawColor(230, 232, 235);
-        doc.setLineWidth(0.2);
-        doc.line(MARGIN, cur.y, MARGIN + COL_W, cur.y);
-        cur.nl(4);
-      }
-    });
-    cur.nl(4);
+    // SMAC
+    if (hasSmac) {
+      signatureBox(doc, cur, "SMAC", pv.step5!.nomSmac, pv.step5?.signatureSmac);
+    }
 
-    rowKV(doc, cur, "Réception acceptée",
-      pv.step5?.receptionAcceptee ? "Oui" : "Non");
+    // Participants côte à côte
+    if (hasParticipants) {
+      signatureGrid(doc, cur, pv.step5!.participants!);
+    }
+
+    // Réception + mise en conformité
+    resetRowIndex();
+    if (pv.step5?.receptionAcceptee !== undefined)
+      rowKV(doc, cur, "Réception acceptée", pv.step5.receptionAcceptee ? "Oui" : "Non");
     if (pv.step5?.miseEnConformiteLe)
       rowKV(doc, cur, "Mise en conformité le", formatDate(pv.step5.miseEnConformiteLe));
   }
 
-  // ── Pied de page ──────────────────────────────────────────────────────────
+  // ── Pied de page sur toutes les pages ────────────────────────────────────
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
+
+    // Bandeau pied de page
+    doc.setFillColor(...ROW_A);
+    doc.rect(0, PAGE_H - 12, PAGE_W, 12, "F");
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.4);
+    doc.line(0, PAGE_H - 12, PAGE_W, PAGE_H - 12);
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(...GRAY);
-    doc.text(`Document généré par SMAC — ${pv.id}`, MARGIN, PAGE_H - 6);
-    doc.text(`Page ${i} / ${totalPages}`, PAGE_W - MARGIN, PAGE_H - 6, { align: "right" });
-    doc.setDrawColor(230, 232, 235);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN, PAGE_H - 10, PAGE_W - MARGIN, PAGE_H - 10);
+    doc.text(`SMAC — Document officiel — ${pv.id}`, MARGIN, PAGE_H - 5);
+    doc.text(`Page ${i} / ${totalPages}`, PAGE_W - MARGIN, PAGE_H - 5, { align: "right" });
   }
 
-  const filename = `${pv.id}_${pv.step1?.chantier?.replace(/\s+/g, "_") ?? "PV"}.pdf`;
+  const filename = `PV_${pv.id}_${(pv.step1?.chantier ?? "SMAC").replace(/\s+/g, "_")}.pdf`;
   return { doc, filename };
 }
 

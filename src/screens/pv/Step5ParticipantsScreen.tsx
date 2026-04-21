@@ -1,7 +1,7 @@
 // src/screens/pv/Step5ParticipantsScreen.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Loader2 } from "lucide-react";
 import { Input } from "../../components/ui";
 import { ConfirmModal, SignatureCanvas } from "../../components/shared";
 import { usePvFormStore } from "../../store";
@@ -66,6 +66,7 @@ const Step5ParticipantsScreen = () => {
   // ── Validation / erreur ────────────────────────────────────────────────────
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // ── Condition pour autoriser l'ajout de participants ──────────────────────
   const smacComplete = nomSmac.trim() !== "" && signatureSmac !== null;
@@ -123,6 +124,7 @@ const Step5ParticipantsScreen = () => {
 
   const handleSave = () => {
     if (!validate()) return;
+    setSaving(true);
 
     const mappedParticipants: Participant[] = participants
       .filter((p) => p.nom.trim())
@@ -142,8 +144,11 @@ const Step5ParticipantsScreen = () => {
       envoyerEmail,
       emailDestinataire: email || undefined,
     });
-    navigate("/pv-form/step6", { replace: true });
-    savePv();
+
+    setTimeout(() => {
+      savePv();
+      navigate("/pv-form/step6", { replace: true });
+    }, 300);
   };
 
   const handleCancel = () => setShowCancelModal(true);
@@ -466,6 +471,7 @@ const Step5ParticipantsScreen = () => {
           <button
             type="button"
             onClick={handleSave}
+            disabled={saving}
             style={{
               flex: 2,
               backgroundColor: "#E3000F",
@@ -475,10 +481,15 @@ const Step5ParticipantsScreen = () => {
               padding: "14px 20px",
               fontSize: 15,
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.8 : 1,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}
           >
-            Enregistrer le PV
+            {saving
+              ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Enregistrement…</>
+              : "Enregistrer le PV"
+            }
           </button>
         </div>
       </div>

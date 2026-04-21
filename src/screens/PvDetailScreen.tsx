@@ -189,6 +189,23 @@ const PvDetailScreen = () => {
           </Section>
         )}
 
+        {/* SMAC */}
+        {pv.step5?.nomSmac && (
+          <Section title="SMAC">
+            <Row label="Nom SMAC" value={pv.step5.nomSmac} bold />
+            {pv.step5.signatureSmac && (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, marginBottom: 6 }}>
+                  Signature SMAC
+                </p>
+                <img src={pv.step5.signatureSmac} alt="signature SMAC"
+                  style={{ height: 64, maxWidth: "100%", borderRadius: 8,
+                    border: "1px solid #E5E7EB", backgroundColor: "#fff", display: "block" }} />
+              </div>
+            )}
+          </Section>
+        )}
+
         {/* Participants */}
         {(pv.step5?.participants?.length ?? 0) > 0 && (
           <Section title="Participants">

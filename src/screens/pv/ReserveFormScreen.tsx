@@ -1,7 +1,7 @@
 // src/screens/pv/ReserveFormScreen.tsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Camera, Trash2, ArrowLeft, Plus, Pencil, X, Home } from "lucide-react";
+import { Camera, Trash2, ArrowLeft, Plus, Pencil, X, Home, Loader2 } from "lucide-react";
 import { usePvFormStore } from "../../store";
 import type { Reserve, ReservePhoto } from "../../types";
 import { ImageAnnotator } from "../../components/shared";
@@ -45,6 +45,7 @@ const ReserveFormScreen = () => {
     existing?.photos.find(p => p.caption === "__locPhoto") ?? null
   );
   const [errors,             setErrors]             = useState<{ detail?: string }>({});
+  const [saving,             setSaving]             = useState(false);
   const [loadingPhotos,      setLoadingPhotos]      = useState(false);
   const [annotatingPhoto,    setAnnotatingPhoto]    = useState<ReservePhoto | null>(null);
   const [annotatingLocPhoto, setAnnotatingLocPhoto] = useState(false);
@@ -129,10 +130,13 @@ const ReserveFormScreen = () => {
   // ── Sauvegarde ────────────────────────────────────────────────────────────────
   const handleSave = () => {
     if (!validate()) return;
+    setSaving(true);
     const reserve = buildReserve();
     if (isEdit) updateReserve(reserve);
     else        addReserve(reserve);
-    navigate("/pv-form", { replace: true });
+    setTimeout(() => {
+      navigate("/pv-form", { replace: true });
+    }, 300);
   };
 
   const resetForm = () => {
@@ -600,12 +604,18 @@ const ReserveFormScreen = () => {
           </button>
         )}
 
-        <button onClick={handleSave} style={{
+        <button onClick={handleSave} disabled={saving} style={{
           backgroundColor:"#E3000F", color:"#fff", border:"none",
           borderRadius:100, padding:"12px 24px",
-          fontSize:14, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap",
+          fontSize:14, fontWeight:700,
+          cursor: saving ? "not-allowed" : "pointer",
+          whiteSpace:"nowrap", opacity: saving ? 0.8 : 1,
+          display:"flex", alignItems:"center", gap:6,
         }}>
-          {isEdit ? "Sauvegarder la réserve" : "Sauvegarder"}
+          {saving
+            ? <><Loader2 size={16} style={{ animation:"spin 1s linear infinite" }} /> Enregistrement…</>
+            : isEdit ? "Sauvegarder la réserve" : "Sauvegarder"
+          }
         </button>
       </div>
 
