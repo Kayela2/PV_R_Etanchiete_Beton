@@ -25,7 +25,6 @@ const LINE_H   = 6;    // interligne normal
 const SMAC_RED: [number, number, number] = [227, 0, 15];
 const DARK:     [number, number, number] = [17, 24, 39];
 const GRAY:     [number, number, number] = [107, 114, 128];
-const GRAY_BG:  [number, number, number] = [243, 244, 246];
 const WHITE:    [number, number, number] = [255, 255, 255];
 const GREEN:    [number, number, number] = [22, 163, 74];
 
@@ -87,7 +86,7 @@ function drawHeader(doc: jsPDF, pvId: string, logoBase64: string) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(...SMAC_RED);
-  doc.text("P.V DE RÉCEPTION DE SUPPORT BÉTON – ÉTANCHÉITÉ", PAGE_W / 2, 11, { align: "center" });
+  doc.text("P.V DE RÉCEPTION SUPPORT BÉTON – ÉTANCHÉITÉ", PAGE_W / 2, 10, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...DARK);
@@ -198,8 +197,8 @@ function photoGrid(doc: jsPDF, cur: Cursor, photos: { url: string }[]) {
   cur.nl(ph + 4);
 }
 
-// ── Générateur principal ──────────────────────────────────────────────────────
-export async function generatePvPdf(pv: Pv): Promise<void> {
+// ── Construction interne du document ─────────────────────────────────────────
+async function buildPvDoc(pv: Pv): Promise<{ doc: jsPDF; filename: string }> {
   const logoBase64 = await fetchBase64(smacLogoUrl).catch(() => "");
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -266,58 +265,28 @@ export async function generatePvPdf(pv: Pv): Promise<void> {
   }
 
   // ── 3. État de surface ───────────────────────────────────────────────────
-  if (pv.step2) {
+  if (pv.step2?.etatSurface) {
     sectionTitle(doc, cur, "État de surface");
-
-    // Fond gris pour sous-titre
-    doc.setFillColor(...GRAY_BG);
-    doc.rect(MARGIN, cur.y - 1, COL_W, 6, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...DARK);
-    doc.text("Etat de surface", MARGIN + 2, cur.y + 3.5);
-    cur.nl(8);
-
-    rowConformite(doc, cur, "Régularité du support", pv.step2.etatSurface?.regulariteSupport);
-    rowConformite(doc, cur, "Propreté du support",   pv.step2.etatSurface?.propreteSupport);
-    if (pv.step2.etatSurface?.pente)
-      rowConformite(doc, cur, "Pente",               pv.step2.etatSurface.pente);
-
-    doc.setFillColor(...GRAY_BG);
-    doc.rect(MARGIN, cur.y, COL_W, 6, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(...DARK);
-    doc.text("Parties courantes", MARGIN + 2, cur.y + 4);
-    cur.nl(8);
-
-    rowConformite(doc, cur, "Régularité du support", pv.step2.partiesCourantes?.regulariteSupport);
-    rowConformite(doc, cur, "Propreté du support",   pv.step2.partiesCourantes?.propreteSupport);
+    rowConformite(doc, cur, "Régularité du support", pv.step2.etatSurface.regulariteSupport);
+    rowConformite(doc, cur, "Propreté du support",   pv.step2.etatSurface.propreteSupport);
+    rowConformite(doc, cur, "Pente",                 pv.step2.etatSurface.pente);
     cur.nl(4);
   }
 
-  // ── 4. Relevés d'étanchéité ──────────────────────────────────────────────
-  if (pv.step3?.releveEtancheite) {
-    sectionTitle(doc, cur, "Relevés d'étanchéité");
-    const r = pv.step3.releveEtancheite;
-    rowConformite(doc, cur, "Hauteur d'engravure",               r.trousBanchesRebouches);
-    rowConformite(doc, cur, "Profondeur d'engravure",            r.remplissageJointsPanneaux);
-    rowConformite(doc, cur, "Protection de la tête des relevés", r.hauteurEngravure);
-    rowConformite(doc, cur, "Profondeur engravure",              r.profondeurEngravure);
-    rowConformite(doc, cur, "Protection tête de relevés",        r.protectionTeteReleves);
-    cur.nl(4);
-  }
-
-  // ── 5. Points singuliers ────────────────────────────────────────────────
-  if (pv.step4?.pointsSinguliers) {
-    sectionTitle(doc, cur, "Points singuliers");
-    const p = pv.step4.pointsSinguliers;
-    rowConformite(doc, cur, "Trémies lanterneaux",  p.tremiesLanterneaux);
-    rowConformite(doc, cur, "Eaux pluviales",        p.eauxPluviales);
-    rowConformite(doc, cur, "Ventilation",           p.deversoirs);
-    rowConformite(doc, cur, "Trop-pleins",           p.tropPleins);
-    rowConformite(doc, cur, "Joints de dilatation",  p.jointsDialatation);
-    if (pv.step4.autresEcartsObservations) {
+  // ── 4. Support des relevés ───────────────────────────────────────────────
+  if (pv.step2?.supportReleves) {
+    sectionTitle(doc, cur, "Support des relevés");
+    const r = pv.step2.supportReleves;
+    rowConformite(doc, cur, "Hauteur engravure",                  r.hauteurEngravure);
+    rowConformite(doc, cur, "Profondeur engravure",               r.profondeurEngravure);
+    rowConformite(doc, cur, "Protection de la tête des relevés",  r.protectionTeteReleves);
+    rowConformite(doc, cur, "Propreté du support des relevés",    r.propreteSupportReleves);
+    rowConformite(doc, cur, "Trémie / lanterneau",                r.tremiesLanterneaux);
+    rowConformite(doc, cur, "Eau pluviale",                       r.eauxPluviales);
+    rowConformite(doc, cur, "Ventilation",                        r.ventilation);
+    rowConformite(doc, cur, "Trop-plein",                         r.tropPleins);
+    rowConformite(doc, cur, "Joint de dilatation",                r.jointsDialatation);
+    if (r.autresEcartsObservations) {
       cur.nl(2);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
@@ -326,7 +295,7 @@ export async function generatePvPdf(pv: Pv): Promise<void> {
       cur.nl(5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...DARK);
-      const obsLines = doc.splitTextToSize(pv.step4.autresEcartsObservations, COL_W);
+      const obsLines = doc.splitTextToSize(r.autresEcartsObservations, COL_W);
       doc.text(obsLines, MARGIN, cur.y);
       cur.nl(obsLines.length * 4 + 2);
     }
@@ -384,7 +353,17 @@ export async function generatePvPdf(pv: Pv): Promise<void> {
     doc.line(MARGIN, PAGE_H - 10, PAGE_W - MARGIN, PAGE_H - 10);
   }
 
-  // ── Téléchargement ────────────────────────────────────────────────────────
   const filename = `${pv.id}_${pv.step1?.chantier?.replace(/\s+/g, "_") ?? "PV"}.pdf`;
+  return { doc, filename };
+}
+
+// ── Exports publics ───────────────────────────────────────────────────────────
+export async function generatePvPdf(pv: Pv): Promise<void> {
+  const { doc, filename } = await buildPvDoc(pv);
   doc.save(filename);
+}
+
+export async function generatePvPdfBlob(pv: Pv): Promise<{ blob: Blob; filename: string }> {
+  const { doc, filename } = await buildPvDoc(pv);
+  return { blob: doc.output("blob") as Blob, filename };
 }

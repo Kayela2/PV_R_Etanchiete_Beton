@@ -1,5 +1,5 @@
 // src/screens/pv/ReserveFormScreen.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Camera, Trash2, ArrowLeft, Plus, Pencil, X, Home } from "lucide-react";
 import { usePvFormStore } from "../../store";
@@ -48,6 +48,17 @@ const ReserveFormScreen = () => {
   const [loadingPhotos,      setLoadingPhotos]      = useState(false);
   const [annotatingPhoto,    setAnnotatingPhoto]    = useState<ReservePhoto | null>(null);
   const [annotatingLocPhoto, setAnnotatingLocPhoto] = useState(false);
+
+  // Resync form fields when navigating to a different reserve (id change)
+  useEffect(() => {
+    const target = id ? reserves.find((r) => r.id === id) : undefined;
+    setLocalisation(target?.localisation ?? "");
+    setDetail(target?.detail ?? "");
+    setPhotos(target?.photos.filter(p => p.caption !== "__locPhoto") ?? []);
+    setLocPhoto(target?.photos.find(p => p.caption === "__locPhoto") ?? null);
+    setErrors({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   // ── Lecture de fichiers ───────────────────────────────────────────────────────
   // On extrait les File objects en tableau AVANT tout reset de l'input.
@@ -124,10 +135,18 @@ const ReserveFormScreen = () => {
     navigate("/pv-form", { replace: true });
   };
 
+  const resetForm = () => {
+    setLocalisation("");
+    setDetail("");
+    setPhotos([]);
+    setLocPhoto(null);
+    setErrors({});
+  };
+
   const handleSaveAndAddAnother = () => {
     if (!validate()) return;
     addReserve(buildReserve());
-    navigate("/pv-form/reserve", { replace: true });
+    resetForm();
   };
 
   // En mode édition, on met à jour — pas ajouter une nouvelle réserve en parallèle.
@@ -149,7 +168,7 @@ const ReserveFormScreen = () => {
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", minHeight:"100%", backgroundColor:"#fff", position:"relative" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", backgroundColor:"#fff", position:"relative" }}>
 
       {/* ── Annotateur photo galerie ── */}
       {annotatingPhoto && (
@@ -170,7 +189,7 @@ const ReserveFormScreen = () => {
       {/* ── Header ── */}
       <div style={{
         display:"flex", alignItems:"center", gap:12,
-        padding:"48px 20px 16px", borderBottom:"1px solid #E5E7EB",
+        padding:"24px 20px 16px", borderBottom:"1px solid #E5E7EB",
         flexShrink: 0,
       }}>
         <button onClick={() => navigate(-1)} style={{
@@ -185,7 +204,7 @@ const ReserveFormScreen = () => {
         </h2>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:"20px", minHeight:0 }}>
+      <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 0", minHeight:0 }}>
 
         <h3 style={{ fontSize:22, fontWeight:900, color:"#111827", marginBottom:8 }}>
           Réserves à ajouter
@@ -474,50 +493,6 @@ const ReserveFormScreen = () => {
           )}
         </div>
 
-        {/* ── Retour / Sauvegarder ── */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
-          <button onClick={() => navigate(-1)} style={{
-            display:"flex", alignItems:"center", gap:6,
-            background:"none", border:"none", color:"#E3000F",
-            fontSize:14, fontWeight:600, cursor:"pointer",
-          }}>
-            <ArrowLeft size={15} /> Retour
-          </button>
-          <button onClick={handleSave} style={{
-            backgroundColor:"#E3000F", color:"#fff", border:"none",
-            borderRadius:100, padding:"12px 32px",
-            fontSize:14, fontWeight:700, cursor:"pointer",
-          }}>
-            {isEdit ? "Sauvegarder la réserve" : "Sauvegarder"}
-          </button>
-        </div>
-
-        {/* ── Ajouter une nouvelle réserve ── */}
-        {canAddMore && (
-          <button onClick={handleSaveAndAddAnother} style={{
-            width:"100%", border:"2px dashed #E5E7EB",
-            borderRadius:16, padding:"18px 16px",
-            background:"none", cursor:"pointer",
-            display:"flex", flexDirection:"column",
-            alignItems:"center", gap:8, marginBottom:24,
-            boxSizing:"border-box",
-          }}>
-            <div style={{
-              width:32, height:32, borderRadius:"50%",
-              border:"1.5px solid #D1D5DB",
-              display:"flex", alignItems:"center", justifyContent:"center",
-            }}>
-              <Plus size={18} color="#6B7280" />
-            </div>
-            <span style={{
-              fontSize:11, fontWeight:700, color:"#6B7280",
-              textTransform:"uppercase", letterSpacing:"0.08em",
-            }}>
-              Ajouter une nouvelle réserve
-            </span>
-          </button>
-        )}
-
         {reserves.length > 0 && (
           <p style={{ fontSize:12, color:"#6B7280", textAlign:"center", marginBottom:16 }}>
             {reserves.length} réserve{reserves.length > 1 ? "s" : ""}
@@ -584,7 +559,54 @@ const ReserveFormScreen = () => {
           </div>
         )}
 
-        <div style={{ height:32 }} />
+        <div style={{ height:16 }} />
+      </div>
+
+      {/* ── Retour / Ajouter / Sauvegarder ── */}
+      <div style={{
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"12px 20px", borderTop:"1px solid #F3F4F6",
+        backgroundColor:"#fff", flexShrink:0, gap:8,
+      }}>
+        <button onClick={() => navigate(-1)} style={{
+          display:"flex", alignItems:"center", gap:6,
+          background:"none", border:"none", color:"#E3000F",
+          fontSize:14, fontWeight:600, cursor:"pointer", padding:0,
+        }}>
+          <ArrowLeft size={15} /> Retour
+        </button>
+
+        {canAddMore && (
+          <button onClick={handleSaveAndAddAnother} style={{
+            border:"1.5px dashed #D1D5DB", borderRadius:12,
+            padding:"8px 14px", background:"none", cursor:"pointer",
+            display:"flex", alignItems:"center", gap:6,
+          }}>
+            <div style={{
+              width:22, height:22, borderRadius:"50%",
+              border:"1.5px solid #D1D5DB",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0,
+            }}>
+              <Plus size={12} color="#6B7280" />
+            </div>
+            <span style={{
+              fontSize:10, fontWeight:700, color:"#6B7280",
+              textTransform:"uppercase", letterSpacing:"0.07em",
+              whiteSpace:"nowrap",
+            }}>
+              Nouvelle réserve
+            </span>
+          </button>
+        )}
+
+        <button onClick={handleSave} style={{
+          backgroundColor:"#E3000F", color:"#fff", border:"none",
+          borderRadius:100, padding:"12px 24px",
+          fontSize:14, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap",
+        }}>
+          {isEdit ? "Sauvegarder la réserve" : "Sauvegarder"}
+        </button>
       </div>
 
       {/* ── Bottom nav ── */}

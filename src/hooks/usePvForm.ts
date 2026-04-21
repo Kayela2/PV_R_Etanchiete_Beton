@@ -26,8 +26,6 @@ export const usePvForm = () => {
         createdAt: existing?.createdAt ?? new Date().toISOString(),
         step1:     latest.step1 as Pv["step1"],
         step2:     latest.step2 as Pv["step2"],
-        step3:     latest.step3 as Pv["step3"],
-        step4:     latest.step4 as Pv["step4"],
         step5:     latest.step5 as Pv["step5"],
       };
       updatePv(updatedPv);
@@ -42,8 +40,6 @@ export const usePvForm = () => {
       createdAt: new Date().toISOString(),
       step1:     latest.step1 as Pv["step1"],
       step2:     latest.step2 as Pv["step2"],
-      step3:     latest.step3 as Pv["step3"],
-      step4:     latest.step4 as Pv["step4"],
       step5:     latest.step5 as Pv["step5"],
     };
     addPv(newPv);

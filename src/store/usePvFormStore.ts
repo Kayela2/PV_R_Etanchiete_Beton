@@ -5,8 +5,6 @@ import type {
   PvFormData,
   PvStep1,
   PvStep2,
-  PvStep3,
-  PvStep4,
   PvStep5,
   Reserve,
 } from "../types";
@@ -14,9 +12,8 @@ import type {
 const initialFormData: PvFormData = {
   step1: { reserves: [] },
   step2: {},
-  step3: {},
-  step4: {},
   step5: {
+    nomSmac:           "",
     participants:      [],
     receptionAcceptee: true,
     envoyerEmail:      false,
@@ -26,7 +23,7 @@ const initialFormData: PvFormData = {
 interface PvFormStore {
   currentStep:  number;
   formData:     PvFormData;
-  editingPvId?: string;          // défini = mode édition
+  editingPvId?: string;
 
   // Navigation
   goToStep:    (step: number) => void;
@@ -36,8 +33,6 @@ interface PvFormStore {
   // Mise à jour par étape
   updateStep1: (data: Partial<PvStep1>) => void;
   updateStep2: (data: Partial<PvStep2>) => void;
-  updateStep3: (data: Partial<PvStep3>) => void;
-  updateStep4: (data: Partial<PvStep4>) => void;
   updateStep5: (data: Partial<PvStep5>) => void;
 
   // Gestion des réserves
@@ -60,7 +55,7 @@ export const usePvFormStore = create<PvFormStore>()((set) => ({
   // ── Navigation ──────────────────────────────────────────────────────────────
   goToStep: (step) => set({ currentStep: step }),
   nextStep: () =>
-    set((state) => ({ currentStep: Math.min(state.currentStep + 1, 6) })),
+    set((state) => ({ currentStep: Math.min(state.currentStep + 1, 4) })),
   prevStep: () =>
     set((state) => ({ currentStep: Math.max(state.currentStep - 1, 1) })),
 
@@ -72,14 +67,6 @@ export const usePvFormStore = create<PvFormStore>()((set) => ({
   updateStep2: (data) =>
     set((state) => ({
       formData: { ...state.formData, step2: { ...state.formData.step2, ...data } },
-    })),
-  updateStep3: (data) =>
-    set((state) => ({
-      formData: { ...state.formData, step3: { ...state.formData.step3, ...data } },
-    })),
-  updateStep4: (data) =>
-    set((state) => ({
-      formData: { ...state.formData, step4: { ...state.formData.step4, ...data } },
     })),
   updateStep5: (data) =>
     set((state) => ({
@@ -128,8 +115,6 @@ export const usePvFormStore = create<PvFormStore>()((set) => ({
       formData: {
         step1: pv.step1,
         step2: pv.step2,
-        step3: pv.step3,
-        step4: pv.step4,
         step5: pv.step5,
       },
     }),

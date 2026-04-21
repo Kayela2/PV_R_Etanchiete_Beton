@@ -35,6 +35,10 @@ const Step5ParticipantsScreen = () => {
   const { savePv } = usePvForm();
   const step5 = formData.step5;
 
+  // ── État SMAC ─────────────────────────────────────────────────────────────
+  const [nomSmac,       setNomSmac]       = useState(step5.nomSmac       ?? "");
+  const [signatureSmac, setSignatureSmac] = useState<string | null>(step5.signatureSmac ?? null);
+
   // ── État participants ──────────────────────────────────────────────────────
   const [participants, setParticipants] = useState<LocalParticipant[]>(() => {
     const saved = step5.participants ?? [];
@@ -63,9 +67,17 @@ const Step5ParticipantsScreen = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showCancelModal, setShowCancelModal] = useState(false);
 
+  // ── Condition pour autoriser l'ajout de participants ──────────────────────
+  const smacComplete = nomSmac.trim() !== "" && signatureSmac !== null;
+  const lastParticipantComplete = () => {
+    const last = participants[participants.length - 1];
+    return last.nom.trim() !== "" && last.signature !== null;
+  };
+  const canAddParticipant = smacComplete && lastParticipantComplete();
+
   // ── Handlers participants ──────────────────────────────────────────────────
   const addParticipant = () => {
-    if (participants.length < MAX_PARTICIPANTS) {
+    if (participants.length < MAX_PARTICIPANTS && canAddParticipant) {
       setParticipants((prev) => [...prev, newParticipant()]);
     }
   };
@@ -93,13 +105,18 @@ const Step5ParticipantsScreen = () => {
   // ── Validation et sauvegarde ───────────────────────────────────────────────
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    // Valider uniquement les participants qui ont commencé à être remplis
+
+    if (!nomSmac.trim())    newErrors["nomSmac"]       = "Le nom SMAC est requis";
+    if (!signatureSmac)     newErrors["signatureSmac"] = "La signature SMAC est requise";
+
     participants.forEach((p) => {
       const hasAnyData = p.nom.trim() || p.titre.trim() || p.signature;
-      if (hasAnyData && !p.nom.trim()) {
-        newErrors[`${p.id}_nom`] = "Le nom est requis";
+      if (hasAnyData) {
+        if (!p.nom.trim())   newErrors[`${p.id}_nom`]       = "Le nom est requis";
+        if (!p.signature)    newErrors[`${p.id}_signature`]  = "La signature est requise";
       }
     });
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -107,7 +124,6 @@ const Step5ParticipantsScreen = () => {
   const handleSave = () => {
     if (!validate()) return;
 
-    // Garder uniquement les participants avec au moins un nom
     const mappedParticipants: Participant[] = participants
       .filter((p) => p.nom.trim())
       .map((p) => ({
@@ -118,14 +134,14 @@ const Step5ParticipantsScreen = () => {
       }));
 
     updateStep5({
+      nomSmac,
+      signatureSmac: signatureSmac ?? undefined,
       participants: mappedParticipants,
       receptionAcceptee,
       miseEnConformiteLe: miseEnConformite || undefined,
       envoyerEmail,
       emailDestinataire: email || undefined,
     });
-    // Naviguer AVANT savePv pour éviter que resetForm() déclenche
-    // un re-render qui court-circuite la navigation
     navigate("/pv-form/step6", { replace: true });
     savePv();
   };
@@ -135,7 +151,7 @@ const Step5ParticipantsScreen = () => {
   const confirmCancel = () => {
     setShowCancelModal(false);
     prevStep();
-    navigate(-1);
+    navigate("/", { replace: true });
   };
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
@@ -156,46 +172,67 @@ const Step5ParticipantsScreen = () => {
           }}
         >
           {/* Titre section */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p
-              style={{
-                fontSize: 13,
-                fontWeight: 900,
-                color: "#111827",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                borderLeft: "3px solid #E3000F",
-                paddingLeft: 10,
-                margin: 0,
-              }}
-            >
-              Participants
-            </p>
-            {participants.length < MAX_PARTICIPANTS && (
-              <button
-                type="button"
-                onClick={addParticipant}
-                title="Ajouter un participant"
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#E3000F",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  padding: 0,
+          <p style={{
+            fontSize: 13, fontWeight: 900, color: "#111827",
+            textTransform: "uppercase", letterSpacing: "0.08em",
+            borderLeft: "3px solid #E3000F", paddingLeft: 10, margin: 0,
+          }}>
+            Participants
+          </p>
+
+          {/* ── Champs SMAC obligatoires ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12,
+            padding: 12, backgroundColor: "#F9FAFB", borderRadius: 12,
+            border: "1px solid #E5E7EB",
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#E3000F",
+              textTransform: "uppercase", letterSpacing: "0.08em",
+            }}>
+              SMAC
+            </span>
+
+            {/* Nom SMAC */}
+            <div>
+              <Input
+                label="Noms SMAC *"
+                placeholder="Nom du responsable SMAC"
+                value={nomSmac}
+                onChange={(e) => {
+                  setNomSmac(e.target.value);
+                  if (e.target.value.trim()) setErrors((prev) => { const n = { ...prev }; delete n["nomSmac"]; return n; });
                 }}
-              >
-                <UserPlus size={18} />
-              </button>
-            )}
+              />
+              {errors["nomSmac"] && (
+                <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
+                  {errors["nomSmac"]}
+                </p>
+              )}
+            </div>
+
+            {/* Signature SMAC */}
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#374151",
+                textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px",
+              }}>
+                Signature SMAC *
+              </p>
+              <SignatureCanvas
+                value={signatureSmac ?? undefined}
+                onChange={(base64) => {
+                  setSignatureSmac(base64);
+                  if (base64) setErrors((prev) => { const n = { ...prev }; delete n["signatureSmac"]; return n; });
+                }}
+              />
+              {errors["signatureSmac"] && (
+                <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
+                  {errors["signatureSmac"]}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Cartes participants */}
-          {participants.map((participant, index) => (
+          {/* Cartes participants + bouton — visibles uniquement si SMAC complet */}
+          {smacComplete && participants.map((participant, index) => (
             <div
               key={participant.id}
               style={{
@@ -250,33 +287,35 @@ const Step5ParticipantsScreen = () => {
               </div>
 
               {/* Signature */}
-              <SignatureCanvas
-                value={participant.signature ?? undefined}
-                onChange={(base64) =>
-                  handleSignatureChange(participant.id, base64)
-                }
-              />
+              <div>
+                <SignatureCanvas
+                  value={participant.signature ?? undefined}
+                  onChange={(base64) => {
+                    handleSignatureChange(participant.id, base64);
+                    if (base64) setErrors((prev) => { const n = { ...prev }; delete n[`${participant.id}_signature`]; return n; });
+                  }}
+                />
+                {errors[`${participant.id}_signature`] && (
+                  <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
+                    {errors[`${participant.id}_signature`]}
+                  </p>
+                )}
+              </div>
             </div>
           ))}
 
-          {/* Bouton ajouter (si < 3) */}
-          {participants.length < MAX_PARTICIPANTS && (
+          {/* Bouton ajouter — visible quand SMAC complet + dernier participant complet + < 3 */}
+          {smacComplete && lastParticipantComplete() && participants.length < MAX_PARTICIPANTS && (
             <button
               type="button"
               onClick={addParticipant}
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                display: "flex", alignItems: "center", justifyContent: "center",
                 gap: 8,
                 border: "1.5px dashed #E3000F",
-                borderRadius: 12,
-                padding: "10px",
-                background: "none",
-                cursor: "pointer",
-                color: "#E3000F",
-                fontSize: 13,
-                fontWeight: 600,
+                borderRadius: 12, padding: "10px", background: "none",
+                cursor: "pointer", color: "#E3000F",
+                fontSize: 13, fontWeight: 600,
               }}
             >
               <UserPlus size={16} />

@@ -7,14 +7,12 @@ import { ConfirmModal }   from "../../components/shared";
 import { usePvFormStore } from "../../store";
 import Step1InfoScreen         from "./Step1InfoScreen";
 import Step2SurfaceScreen      from "./Step2SurfaceScreen";
-import Step3EtancheiteScreen   from "./Step3EtancheiteScreen";
-import Step4PointsScreen       from "./Step4PointsScreen";
 import Step5ParticipantsScreen from "./Step5ParticipantsScreen";
 import Step6SuccessScreen      from "./Step6SuccessScreen";
 import ReserveFormScreen       from "./ReserveFormScreen";
 import AllReservesScreen       from "./AllReservesScreen";
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 4;
 
 const PvFormLayout = () => {
   const navigate = useNavigate();
@@ -57,7 +55,7 @@ const PvFormLayout = () => {
         <>
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "48px 20px 16px", borderBottom: "1px solid #E5E7EB",
+            padding: "24px 20px 16px", borderBottom: "1px solid #E5E7EB",
             flexShrink: 0,
           }}>
             <button onClick={handleBack} style={{
@@ -85,8 +83,6 @@ const PvFormLayout = () => {
         <Routes>
           <Route index                   element={<Step1InfoScreen />} />
           <Route path="step2"            element={<Step2SurfaceScreen />} />
-          <Route path="step3"            element={<Step3EtancheiteScreen />} />
-          <Route path="step4"            element={<Step4PointsScreen />} />
           <Route path="step5"            element={<Step5ParticipantsScreen />} />
           <Route path="step6"            element={<Step6SuccessScreen />} />
           <Route path="reserve"          element={<ReserveFormScreen />} />

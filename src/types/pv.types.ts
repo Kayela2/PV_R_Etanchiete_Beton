@@ -32,54 +32,27 @@ export interface PvStep1 {
   reserves:             Reserve[];
 }
 
-// ------- Étape 2 : État de surface -------
+// ------- Étape 2 : Nature / Surface / Support des relevés -------
 
 export interface PvStep2 {
   natureTravaux?: "etancheite-beton" | "autre-support";
   etatSurface: {
     regulariteSupport: ConformiteValue;
     propreteSupport:   ConformiteValue;
-    pente?:            ConformiteValue;
+    pente:             ConformiteValue;
   };
-  partiesCourantes: {
-    regulariteSupport: ConformiteValue;
-    propreteSupport:   ConformiteValue;
+  supportReleves: {
+    hauteurEngravure:          ConformiteValue;
+    profondeurEngravure:       ConformiteValue;
+    protectionTeteReleves:     ConformiteValue;
+    propreteSupportReleves:    ConformiteValue;
+    tremiesLanterneaux:        ConformiteValue;
+    eauxPluviales:             ConformiteValue;
+    ventilation:               ConformiteValue;
+    tropPleins:                ConformiteValue;
+    jointsDialatation:         ConformiteValue;
+    autresEcartsObservations?: string;
   };
-}
-
-// ------- Étape 3 : Relevés d'étanchéité -------
-// Note labels (les clés TypeScript restent stables) :
-//   trousBanchesRebouches      → "Hauteur d'engravure"
-//   remplissageJointsPanneaux  → "Profondeur d'engravure"
-//   hauteurEngravure           → "Protection de la tête des relevés"
-//   profondeurEngravure        → "Profondeur engravure"
-//   protectionTeteReleves      → "Protection tête de relevés"
-//   niveauxArase               → SUPPRIMÉ
-
-export interface PvStep3 {
-  releveEtancheite: {
-    trousBanchesRebouches:     ConformiteValue;  // Hauteur d'engravure
-    remplissageJointsPanneaux: ConformiteValue;  // Profondeur d'engravure
-    hauteurEngravure:          ConformiteValue;  // Protection de la tête des relevés
-    profondeurEngravure:       ConformiteValue;  // Profondeur engravure
-    protectionTeteReleves:     ConformiteValue;  // Protection tête de relevés
-  };
-}
-
-// ------- Étape 4 : Points singuliers -------
-// Note labels :
-//   deversoirs                         → "Ventilation"
-//   reservationsSortiesPenetrations    → SUPPRIMÉ
-
-export interface PvStep4 {
-  pointsSinguliers: {
-    tremiesLanterneaux: ConformiteValue;
-    eauxPluviales:      ConformiteValue;
-    deversoirs:         ConformiteValue;  // Ventilation
-    tropPleins:         ConformiteValue;
-    jointsDialatation:  ConformiteValue;
-  };
-  autresEcartsObservations: string;
 }
 
 // ------- Étape 5 : Participants -------
@@ -92,6 +65,8 @@ export interface Participant {
 }
 
 export interface PvStep5 {
+  nomSmac:             string;
+  signatureSmac?:      string;
   participants:        Participant[];
   receptionAcceptee:   boolean;
   miseEnConformiteLe?: string;
@@ -109,8 +84,6 @@ export interface Pv {
   createdAt: string;
   step1:     PvStep1;
   step2:     PvStep2;
-  step3:     PvStep3;
-  step4:     PvStep4;
   step5:     PvStep5;
 }
 
@@ -119,7 +92,5 @@ export interface Pv {
 export type PvFormData = {
   step1: Partial<PvStep1>;
   step2: Partial<PvStep2>;
-  step3: Partial<PvStep3>;
-  step4: Partial<PvStep4>;
   step5: Partial<PvStep5>;
 };

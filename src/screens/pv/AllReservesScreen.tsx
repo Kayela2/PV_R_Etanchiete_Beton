@@ -19,7 +19,7 @@ const AllReservesScreen = () => {
       {/* ── Header ── */}
       <div style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "48px 20px 16px", borderBottom: "1px solid #E5E7EB",
+        padding: "24px 20px 16px", borderBottom: "1px solid #E5E7EB",
         flexShrink: 0,
       }}>
         <button

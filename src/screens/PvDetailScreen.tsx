@@ -58,7 +58,7 @@ const PvDetailScreen = () => {
 
       {/* ── Header ── */}
       <div style={{
-        backgroundColor: "#fff", padding: "48px 20px 16px",
+        backgroundColor: "#fff", padding: "24px 20px 16px",
         borderBottom: "1px solid #E5E7EB",
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
@@ -163,62 +163,31 @@ const PvDetailScreen = () => {
         )}
 
         {/* État de surface */}
-        <Section title="État de surface">
-          <Conformite label="Régularité du support (surface)"
-            value={pv.step2?.etatSurface?.regulariteSupport} />
-          <Conformite label="Propreté du support (surface)"
-            value={pv.step2?.etatSurface?.propreteSupport} />
-          {pv.step2?.etatSurface?.pente && (
-            <Conformite label="Pente" value={pv.step2.etatSurface.pente} />
-          )}
-          <Conformite label="Régularité du support (partie courante)"
-            value={pv.step2?.partiesCourantes?.regulariteSupport} />
-          <Conformite label="Propreté du support (partie courante)"
-            value={pv.step2?.partiesCourantes?.propreteSupport} />
-        </Section>
+        {pv.step2?.etatSurface && (
+          <Section title="État de surface">
+            <Conformite label="Régularité du support" value={pv.step2.etatSurface.regulariteSupport} />
+            <Conformite label="Propreté du support"   value={pv.step2.etatSurface.propreteSupport} />
+            <Conformite label="Pente"                 value={pv.step2.etatSurface.pente} />
+          </Section>
+        )}
 
-        {/* Relevés d'étanchéité — nouveaux libellés */}
-        <Section title="Relevés d'étanchéité">
-          {pv.step3?.releveEtancheite ? (
-            <>
-              <Conformite label="Hauteur d'engravure"
-                value={pv.step3.releveEtancheite.trousBanchesRebouches} />
-              <Conformite label="Profondeur d'engravure"
-                value={pv.step3.releveEtancheite.remplissageJointsPanneaux} />
-              <Conformite label="Protection de la tête des relevés"
-                value={pv.step3.releveEtancheite.hauteurEngravure} />
-              <Conformite label="Profondeur engravure"
-                value={pv.step3.releveEtancheite.profondeurEngravure} />
-              <Conformite label="Protection tête de relevés"
-                value={pv.step3.releveEtancheite.protectionTeteReleves} />
-            </>
-          ) : (
-            <p style={{ fontSize: 13, color: "#9CA3AF" }}>Aucune donnée</p>
-          )}
-        </Section>
-
-        {/* Points singuliers — Ventilation, sans Réservations */}
-        <Section title="Points singuliers">
-          {pv.step4?.pointsSinguliers ? (
-            <>
-              <Conformite label="Trémies lanterneaux"
-                value={pv.step4.pointsSinguliers.tremiesLanterneaux} />
-              <Conformite label="Eaux pluviales"
-                value={pv.step4.pointsSinguliers.eauxPluviales} />
-              <Conformite label="Ventilation"
-                value={pv.step4.pointsSinguliers.deversoirs} />
-              <Conformite label="Trop-pleins"
-                value={pv.step4.pointsSinguliers.tropPleins} />
-              <Conformite label="Joints de dilatation"
-                value={pv.step4.pointsSinguliers.jointsDialatation} />
-              {pv.step4.autresEcartsObservations && (
-                <Row label="Observations" value={pv.step4.autresEcartsObservations} />
-              )}
-            </>
-          ) : (
-            <p style={{ fontSize: 13, color: "#9CA3AF" }}>Aucune donnée</p>
-          )}
-        </Section>
+        {/* Support des relevés */}
+        {pv.step2?.supportReleves && (
+          <Section title="Support des relevés">
+            <Conformite label="Hauteur engravure"                 value={pv.step2.supportReleves.hauteurEngravure} />
+            <Conformite label="Profondeur engravure"              value={pv.step2.supportReleves.profondeurEngravure} />
+            <Conformite label="Protection de la tête des relevés" value={pv.step2.supportReleves.protectionTeteReleves} />
+            <Conformite label="Propreté du support des relevés"   value={pv.step2.supportReleves.propreteSupportReleves} />
+            <Conformite label="Trémie / lanterneau"               value={pv.step2.supportReleves.tremiesLanterneaux} />
+            <Conformite label="Eau pluviale"                      value={pv.step2.supportReleves.eauxPluviales} />
+            <Conformite label="Ventilation"                       value={pv.step2.supportReleves.ventilation} />
+            <Conformite label="Trop-plein"                        value={pv.step2.supportReleves.tropPleins} />
+            <Conformite label="Joint de dilatation"               value={pv.step2.supportReleves.jointsDialatation} />
+            {pv.step2.supportReleves.autresEcartsObservations && (
+              <Row label="Observations" value={pv.step2.supportReleves.autresEcartsObservations} />
+            )}
+          </Section>
+        )}
 
         {/* Participants */}
         {(pv.step5?.participants?.length ?? 0) > 0 && (

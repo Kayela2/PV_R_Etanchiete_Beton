@@ -27,7 +27,7 @@ const HomeScreen = () => {
       {/* Header */}
       <div style={{
         backgroundColor: "#fff",
-        padding: "48px 20px 16px",
+        padding: "24px 20px 16px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
         flexShrink: 0,
       }}>
@@ -36,24 +36,24 @@ const HomeScreen = () => {
           <img
             src={smacLogo}
             alt="SMAC"
-            style={{ height: 36, width: "auto", objectFit: "contain" }}
+            style={{ height: 34, width: "auto", objectFit: "contain" }}
           />
 
           {/* Titre centré */}
           <div style={{ textAlign: "center", flex: 1, padding: "0 8px" }}>
             <p style={{
               color: "#E3000F", fontWeight: 800, fontSize: 18,
-              lineHeight: 1.4, textTransform: "uppercase", letterSpacing: "0.02em",
+              lineHeight: 1.0, textTransform: "uppercase", letterSpacing: "0.02em",
               margin: 0,
             }}>
-              P.V DE RÉCEPTION DE
+              P.V DE RÉCEPTION SUPPORT
             </p>
             <p style={{
               color: "#E3000F", fontWeight: 800, fontSize: 18,
-              lineHeight: 1.4, textTransform: "uppercase", letterSpacing: "0.02em",
+              lineHeight: 1.0, textTransform: "uppercase", letterSpacing: "0.02em",
               margin: 0,
             }}>
-              SUPPORT BÉTON - ÉTANCHÉITÉ
+               BÉTON - ÉTANCHÉITÉ
             </p>
           </div>
 
