@@ -13,9 +13,9 @@ const OPTIONS: { value: ConformiteValue; label: string }[] = [
 ];
 
 export const ToggleGroup = ({ label, value, onChange }: ToggleGroupProps) => (
-  <div className="toggle-row">
+  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
     <span className="toggle-row__label">{label}</span>
-    <div className="toggle-group">
+    <div className="toggle-group" style={{ alignSelf: "stretch" }}>
       {OPTIONS.map((opt) => (
         <button
           key={opt.value}
@@ -25,6 +25,7 @@ export const ToggleGroup = ({ label, value, onChange }: ToggleGroupProps) => (
             "toggle-btn",
             value === opt.value ? "toggle-btn--active" : "",
           ].join(" ")}
+          style={{ flex: 1 }}
         >
           {opt.label}
         </button>
