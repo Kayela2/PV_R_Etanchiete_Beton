@@ -4,8 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { UserPlus, Loader2, Trash2 } from "lucide-react";
 import { Input } from "../../components/ui";
 import { ConfirmModal, SignatureCanvas } from "../../components/shared";
-import { usePvFormStore } from "../../store";
+import { usePvFormStore, usePvStore } from "../../store";
 import { usePvForm } from "../../hooks/usePvForm";
+import { generatePvPdfBlob } from "../../utils/generatePvPdf";
 import type { Participant } from "../../types";
 
 // ── Types locaux ──────────────────────────────────────────────────────────────
@@ -33,7 +34,8 @@ const Step5ParticipantsScreen = () => {
   const navigate = useNavigate();
   const { formData, updateStep5, prevStep } = usePvFormStore();
   const { savePv } = usePvForm();
-  const step5 = formData.step5;
+  const step5       = formData.step5;
+  const hasReserves = (formData.step1.reserves?.length ?? 0) > 0;
 
   // ── État SMAC ─────────────────────────────────────────────────────────────
   const [nomSmac,       setNomSmac]       = useState(step5.nomSmac       ?? "");
@@ -52,8 +54,9 @@ const Step5ParticipantsScreen = () => {
   });
 
   // ── Autres champs ──────────────────────────────────────────────────────────
+  // Réception : NON automatique si des réserves existent, OUI (verrouillé) sinon
   const [receptionAcceptee, setReceptionAcceptee] = useState(
-    step5.receptionAcceptee ?? true
+    hasReserves ? false : true
   );
   const [miseEnConformite, setMiseEnConformite] = useState(
     step5.miseEnConformiteLe ?? ""
@@ -129,7 +132,7 @@ const Step5ParticipantsScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
 
@@ -152,8 +155,31 @@ const Step5ParticipantsScreen = () => {
       emailDestinataire: email || undefined,
     });
 
+    savePv();
+
+    // Envoi automatique par email si adresse renseignée
+    if (envoyerEmail && email.trim()) {
+      try {
+        const lastPv = usePvStore.getState().pvList[0];
+        if (lastPv) {
+          const { blob, filename } = await generatePvPdfBlob(lastPv);
+          const file = new File([blob], filename, { type: "application/pdf" });
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `PV SMAC — ${lastPv.step1?.chantier ?? ""}`,
+              text:  `Procès-verbal SMAC — Réf. : ${lastPv.id}`,
+            });
+          } else {
+            const subject = encodeURIComponent(`PV SMAC — ${lastPv.step1?.chantier ?? ""}`);
+            const body    = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le procès-verbal ${lastPv.id}.\n\nCordialement,\nSMAC`);
+            window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+          }
+        }
+      } catch { /* silencieux si l'utilisateur annule le partage */ }
+    }
+
     setTimeout(() => {
-      savePv();
       navigate("/pv-form/step6", { replace: true });
     }, 300);
   };
@@ -380,10 +406,21 @@ const Step5ParticipantsScreen = () => {
         >
           {/* Réception acceptée */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
-              Réception acceptée ?
-            </span>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
+                Réception acceptée ?
+              </span>
+              {!hasReserves && (
+                <p style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
+                  Aucune réserve — OUI par défaut
+                </p>
+              )}
+            </div>
+            <div style={{
+              display: "flex", gap: 8,
+              opacity: !hasReserves ? 0.45 : 1,
+              pointerEvents: !hasReserves ? "none" : "auto",
+            }}>
               {(["OUI", "NON"] as const).map((opt) => {
                 const active = opt === "OUI" ? receptionAcceptee : !receptionAcceptee;
                 return (
@@ -392,12 +429,8 @@ const Step5ParticipantsScreen = () => {
                     type="button"
                     onClick={() => setReceptionAcceptee(opt === "OUI")}
                     style={{
-                      padding: "8px 16px",
-                      borderRadius: 10,
-                      border: "none",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
+                      padding: "8px 16px", borderRadius: 10, border: "none",
+                      fontWeight: 700, fontSize: 13, cursor: "pointer",
                       backgroundColor: active ? "#E3000F" : "#F3F4F6",
                       color: active ? "#fff" : "#6B7280",
                     }}
@@ -409,32 +442,19 @@ const Step5ParticipantsScreen = () => {
             </div>
           </div>
 
-          {/* Mise en conformité */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <span
-              style={{ fontSize: 14, fontWeight: 600, color: "#111827", flexShrink: 0 }}
-            >
-              Mise en conformité le :
+          {/* Date : "Mise en conformité" si OUI, "Réception reportée au" si NON */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#111827", flexShrink: 0 }}>
+              {receptionAcceptee ? "Mise en conformité le :" : "Réception reportée au :"}
             </span>
             <input
               type="date"
               value={miseEnConformite}
               onChange={(e) => setMiseEnConformite(e.target.value)}
               style={{
-                backgroundColor: "#F3F4F6",
-                borderRadius: 10,
-                padding: "8px 12px",
-                fontSize: 13,
-                color: "#111827",
-                outline: "none",
-                border: "1.5px solid transparent",
+                backgroundColor: "#F3F4F6", borderRadius: 10,
+                padding: "8px 12px", fontSize: 13, color: "#111827",
+                outline: "none", border: "1.5px solid transparent",
               }}
             />
           </div>

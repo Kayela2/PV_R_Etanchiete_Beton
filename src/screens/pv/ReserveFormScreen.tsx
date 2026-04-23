@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Camera, Trash2, ArrowLeft, Plus, Pencil, X, Home, Loader2 } from "lucide-react";
 import { usePvFormStore } from "../../store";
-import type { Reserve, ReservePhoto } from "../../types";
+import type { ReservePhoto } from "../../types";
 import { ImageAnnotator } from "../../components/shared";
 
 const MAX_PHOTOS = 8;
@@ -28,7 +28,7 @@ const fileOverlay = {
 const ReserveFormScreen = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
-  const { formData, addReserve, updateReserve, removeReserve } = usePvFormStore();
+  const { formData, addReserve, updateReserve } = usePvFormStore();
 
   const reserves = formData.step1.reserves ?? [];
   const existing = id ? reserves.find((r) => r.id === id) : undefined;
@@ -49,6 +49,9 @@ const ReserveFormScreen = () => {
   const [loadingPhotos,      setLoadingPhotos]      = useState(false);
   const [annotatingPhoto,    setAnnotatingPhoto]    = useState<ReservePhoto | null>(null);
   const [annotatingLocPhoto, setAnnotatingLocPhoto] = useState(false);
+  // Action sheet : photo sélectionnée pour afficher les options
+  const [photoSheet,    setPhotoSheet]    = useState<ReservePhoto | null>(null);
+  const [locPhotoSheet, setLocPhotoSheet] = useState(false);
 
   // Resync form fields when navigating to a different reserve (id change)
   useEffect(() => {
@@ -156,6 +159,29 @@ const ReserveFormScreen = () => {
   // En mode édition, on met à jour — pas ajouter une nouvelle réserve en parallèle.
   const canAddMore = !isEdit;
 
+  // ── Remplacement d'image depuis le sheet ─────────────────────────────────────
+  const handleReplacePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!photoSheet) return;
+    const arr = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const targetId = photoSheet.id;
+    setPhotoSheet(null);
+    readFileArray(arr, (newPhotos) => {
+      if (newPhotos[0]) {
+        setPhotos((prev) =>
+          prev.map((p) => p.id === targetId ? { ...newPhotos[0], id: p.id } : p)
+        );
+      }
+    });
+  };
+
+  const handleReplaceLocPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arr = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setLocPhotoSheet(false);
+    readFileArray(arr, (p) => setLocPhoto({ ...p[0], caption: "__locPhoto" }));
+  };
+
   // ── Annotation ────────────────────────────────────────────────────────────────
   const handleAnnotationSave = (annotated: string) => {
     if (!annotatingPhoto) return;
@@ -190,23 +216,212 @@ const ReserveFormScreen = () => {
         />
       )}
 
+      {/* ── Action sheet photo galerie ── */}
+      {photoSheet && (
+        <div
+          onClick={() => setPhotoSheet(null)}
+          style={{
+            position:"fixed", inset:0, zIndex:500,
+            backgroundColor:"rgba(0,0,0,0.5)",
+            display:"flex", flexDirection:"column", justifyContent:"flex-end",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor:"#fff", borderRadius:"20px 20px 0 0",
+              padding:"20px 16px 32px",
+              display:"flex", flexDirection:"column", gap:12,
+            }}
+          >
+            {/* Aperçu */}
+            <img
+              src={photoSheet.url}
+              alt="aperçu"
+              style={{
+                width:"100%", height:200, objectFit:"cover",
+                borderRadius:14, marginBottom:4,
+              }}
+            />
+            {/* Annoter */}
+            <button
+              onClick={() => { setAnnotatingPhoto(photoSheet); setPhotoSheet(null); }}
+              style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#F3F4F6", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:700, color:"#111827",
+                display:"flex", alignItems:"center", gap:10,
+              }}
+            >
+              <Pencil size={18} color="#E3000F" />
+              Annoter
+            </button>
+            {/* Changer l'image */}
+            <div style={{ position:"relative" }}>
+              <div style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#F3F4F6",
+                fontSize:15, fontWeight:700, color:"#111827",
+                display:"flex", alignItems:"center", gap:10,
+                pointerEvents:"none", boxSizing:"border-box",
+              }}>
+                <Camera size={18} color="#111827" />
+                Changer l&apos;image
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                style={fileOverlay}
+                onChange={handleReplacePhoto}
+              />
+            </div>
+            {/* Supprimer */}
+            <button
+              onClick={() => {
+                setPhotos(prev => prev.filter(p => p.id !== photoSheet.id));
+                setPhotoSheet(null);
+              }}
+              style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#FDECEA", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:700, color:"#E3000F",
+                display:"flex", alignItems:"center", gap:10,
+              }}
+            >
+              <Trash2 size={18} color="#E3000F" />
+              Supprimer
+            </button>
+            {/* Annuler */}
+            <button
+              onClick={() => setPhotoSheet(null)}
+              style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#F3F4F6", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:700, color:"#6B7280",
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Action sheet photo localisation ── */}
+      {locPhotoSheet && locPhoto && (
+        <div
+          onClick={() => setLocPhotoSheet(false)}
+          style={{
+            position:"fixed", inset:0, zIndex:500,
+            backgroundColor:"rgba(0,0,0,0.5)",
+            display:"flex", flexDirection:"column", justifyContent:"flex-end",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor:"#fff", borderRadius:"20px 20px 0 0",
+              padding:"20px 16px 32px",
+              display:"flex", flexDirection:"column", gap:12,
+            }}
+          >
+            {/* Aperçu */}
+            <img
+              src={locPhoto.url}
+              alt="aperçu localisation"
+              style={{
+                width:"100%", height:200, objectFit:"cover",
+                borderRadius:14, marginBottom:4,
+              }}
+            />
+            {/* Annoter */}
+            <button
+              onClick={() => { setAnnotatingLocPhoto(true); setLocPhotoSheet(false); }}
+              style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#F3F4F6", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:700, color:"#111827",
+                display:"flex", alignItems:"center", gap:10,
+              }}
+            >
+              <Pencil size={18} color="#E3000F" />
+              Annoter
+            </button>
+            {/* Changer l'image */}
+            <div style={{ position:"relative" }}>
+              <div style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#F3F4F6",
+                fontSize:15, fontWeight:700, color:"#111827",
+                display:"flex", alignItems:"center", gap:10,
+                pointerEvents:"none", boxSizing:"border-box",
+              }}>
+                <Camera size={18} color="#111827" />
+                Changer l&apos;image
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                style={fileOverlay}
+                onChange={handleReplaceLocPhoto}
+              />
+            </div>
+            {/* Supprimer */}
+            <button
+              onClick={() => { setLocPhoto(null); setLocPhotoSheet(false); }}
+              style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#FDECEA", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:700, color:"#E3000F",
+                display:"flex", alignItems:"center", gap:10,
+              }}
+            >
+              <Trash2 size={18} color="#E3000F" />
+              Supprimer
+            </button>
+            {/* Annuler */}
+            <button
+              onClick={() => setLocPhotoSheet(false)}
+              style={{
+                width:"100%", padding:"14px 16px", borderRadius:14,
+                backgroundColor:"#F3F4F6", border:"none", cursor:"pointer",
+                fontSize:15, fontWeight:700, color:"#6B7280",
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ── */}
-      <div style={{
-        display:"flex", alignItems:"center", gap:12,
-        padding:"24px 20px 16px", borderBottom:"1px solid #E5E7EB",
-        flexShrink: 0,
-      }}>
-        <button onClick={() => navigate(-1)} style={{
-          width:36, height:36, borderRadius:"50%", backgroundColor:"#F3F4F6",
-          border:"none", cursor:"pointer",
-          display:"flex", alignItems:"center", justifyContent:"center",
-        }}>
-          <ArrowLeft size={18} color="#E3000F" />
-        </button>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#111827" }}>
-          {isEdit ? "Modification de la Réserve" : "Réserve"}
-        </h2>
-      </div>
+      {(() => {
+        const reserveNum = isEdit
+          ? (reserves.findIndex((r) => r.id === id) + 1) || 1
+          : reserves.length + 1;
+        return (
+          <div style={{
+            display:"flex", alignItems:"center", gap:12,
+            padding:"24px 20px 16px", borderBottom:"1px solid #E5E7EB",
+            flexShrink: 0,
+          }}>
+            <button onClick={() => navigate(-1)} style={{
+              width:36, height:36, borderRadius:"50%", backgroundColor:"#F3F4F6",
+              border:"none", cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              <ArrowLeft size={18} color="#E3000F" />
+            </button>
+            <div>
+              <p style={{ fontSize:11, color:"#6B7280", fontWeight:600, marginBottom:1 }}>
+                {isEdit ? "Modification" : "Création"}
+              </p>
+              <h2 style={{ fontSize:16, fontWeight:900, color:"#111827" }}>
+                Réserve {reserveNum}
+              </h2>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 0", minHeight:0 }}>
 
@@ -283,10 +498,16 @@ const ReserveFormScreen = () => {
               {photos.map((photo) => (
                 <div key={photo.id}>
                   <div style={{ position:"relative" }}>
-                    <img src={photo.url} alt={photo.caption} style={{
-                      width:96, height:96, borderRadius:12,
-                      objectFit:"cover", border:"1px solid #E5E7EB", display:"block",
-                    }} />
+                    <img
+                      src={photo.url}
+                      alt={photo.caption}
+                      onClick={() => setPhotoSheet(photo)}
+                      style={{
+                        width:96, height:96, borderRadius:12,
+                        objectFit:"cover", border:"1px solid #E5E7EB", display:"block",
+                        cursor:"pointer",
+                      }}
+                    />
                     <button
                       onClick={() => setPhotos(prev => prev.filter(p => p.id !== photo.id))}
                       style={{
@@ -301,7 +522,7 @@ const ReserveFormScreen = () => {
                   </div>
                   <div style={{ display:"flex", gap:6, justifyContent:"center", marginTop:4 }}>
                     <button
-                      onClick={() => setAnnotatingPhoto(photo)}
+                      onClick={() => setPhotoSheet(photo)}
                       style={{
                         width:28, height:28, borderRadius:6, backgroundColor:"#F3F4F6",
                         border:"none", cursor:"pointer",
@@ -386,56 +607,18 @@ const ReserveFormScreen = () => {
         {/* ── Photo de localisation ── */}
         <div style={{ marginBottom:16 }}>
           {locPhoto ? (
-            <div style={{ position:"relative" }}>
+            <div style={{ position:"relative", cursor:"pointer" }} onClick={() => setLocPhotoSheet(true)}>
               <img src={locPhoto.url} alt="localisation" style={{
                 width:"100%", height:160, borderRadius:16,
                 objectFit:"cover", border:"1px solid #E5E7EB", display:"block",
               }} />
-              <div style={{ position:"absolute", top:8, right:8, display:"flex", gap:6 }}>
-                {/* Annoter */}
-                <button
-                  onClick={() => setAnnotatingLocPhoto(true)}
-                  style={{
-                    width:32, height:32, borderRadius:8,
-                    backgroundColor:"rgba(255,255,255,0.9)",
-                    border:"none", cursor:"pointer",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  <Pencil size={14} color="#E3000F" />
-                </button>
-                {/* Remplacer — overlay */}
-                <div style={{ position:"relative", width:32, height:32 }}>
-                  <div style={{
-                    width:"100%", height:"100%", borderRadius:8,
-                    backgroundColor:"rgba(255,255,255,0.9)",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
-                    pointerEvents:"none",
-                  }}>
-                    <Camera size={14} color="#111827" />
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={fileOverlay}
-                    onChange={handleLocPhoto}
-                  />
-                </div>
-                {/* Supprimer */}
-                <button
-                  onClick={() => setLocPhoto(null)}
-                  style={{
-                    width:32, height:32, borderRadius:8,
-                    backgroundColor:"rgba(255,255,255,0.9)",
-                    border:"none", cursor:"pointer",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
-                  }}
-                >
-                  <Trash2 size={14} color="#E3000F" />
-                </button>
+              <div style={{
+                position:"absolute", top:8, right:8,
+                backgroundColor:"rgba(255,255,255,0.9)", borderRadius:8,
+                padding:"4px 10px", fontSize:11, fontWeight:700, color:"#E3000F",
+                boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
+              }}>
+                Modifier
               </div>
             </div>
           ) : (
@@ -497,70 +680,21 @@ const ReserveFormScreen = () => {
           )}
         </div>
 
+        {/* ── Bouton "Voir toutes les réserves" ── */}
         {reserves.length > 0 && (
-          <p style={{ fontSize:12, color:"#6B7280", textAlign:"center", marginBottom:16 }}>
-            {reserves.length} réserve{reserves.length > 1 ? "s" : ""}
-          </p>
-        )}
-
-        {/* ── Liste des réserves (max 2) ── */}
-        {reserves.length > 0 && (
-          <div>
-            <div style={{
-              display:"flex", justifyContent:"space-between",
-              alignItems:"center", marginBottom:16,
-            }}>
-              <h4 style={{ fontSize:20, fontWeight:900, color:"#111827" }}>
-                Liste de Réserves
-              </h4>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                {reserves.length > 2 && (
-                  <button
-                    onClick={() => navigate("/pv-form/reserves")}
-                    style={{
-                      background:"none", border:"none", cursor:"pointer",
-                      fontSize:13, fontWeight:700, color:"#E3000F",
-                      textDecoration:"underline", padding:0,
-                    }}
-                  >
-                    Voir plus ({reserves.length})
-                  </button>
-                )}
-                <span style={{ fontSize:16, fontWeight:700, color:"#6B7280" }}>
-                  {String(reserves.length).padStart(2, "0")}
-                </span>
-              </div>
-            </div>
-
-            <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-              {reserves.slice(0, 2).map((reserve, index) => (
-                <ReserveCard
-                  key={reserve.id}
-                  reserve={reserve}
-                  index={index + 1}
-                  isActive={reserve.id === id}
-                  onEdit={() => navigate("/pv-form/reserve/" + reserve.id)}
-                  onDelete={() => removeReserve(reserve.id)}
-                />
-              ))}
-            </div>
-
-            {reserves.length > 2 && (
-              <button
-                onClick={() => navigate("/pv-form/reserves")}
-                style={{
-                  width:"100%", marginTop:12,
-                  border:"1px solid #E5E7EB", borderRadius:12,
-                  padding:"12px 16px", background:"#F3F4F6", cursor:"pointer",
-                  fontSize:13, fontWeight:700, color:"#6B7280",
-                  display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                  boxSizing:"border-box",
-                }}
-              >
-                Voir toutes les réserves ({reserves.length})
-              </button>
-            )}
-          </div>
+          <button
+            onClick={() => navigate("/pv-form/reserves")}
+            style={{
+              width:"100%", marginBottom:4,
+              border:"1.5px solid #E3000F", borderRadius:14,
+              padding:"13px 16px", background:"#fff", cursor:"pointer",
+              fontSize:14, fontWeight:700, color:"#E3000F",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              boxSizing:"border-box",
+            }}
+          >
+            Voir toutes les réserves ({reserves.length})
+          </button>
         )}
 
         <div style={{ height:16 }} />
@@ -636,82 +770,5 @@ const ReserveFormScreen = () => {
     </div>
   );
 };
-
-/* ── Carte réserve ── */
-const ReserveCard = ({
-  reserve, index, isActive, onEdit, onDelete,
-}: {
-  reserve: Reserve; index: number; isActive: boolean;
-  onEdit: () => void; onDelete: () => void;
-}) => (
-  <div
-    onClick={onEdit}
-    style={{
-      backgroundColor:"#fff", borderRadius:16,
-      border:"1px solid #E5E7EB",
-      borderLeft:"4px solid #E3000F",
-      padding:16,
-      opacity: isActive ? 0.7 : 1,
-      cursor:"pointer",
-    }}
-  >
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-      <div style={{ flex:1 }}>
-        <p style={{
-          fontSize:11, fontWeight:700, color:"#E3000F",
-          textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:2,
-        }}>
-          Réserve #{String(index).padStart(2, "0")}
-        </p>
-        <p style={{ fontSize:15, fontWeight:900, color:"#111827", marginBottom:2 }}>
-          {reserve.localisation || "Sans localisation"}
-        </p>
-        <p style={{ fontSize:12, color:"#6B7280", lineHeight:1.5 }}>{reserve.detail}</p>
-      </div>
-      <div style={{ display:"flex", gap:8, marginLeft:12, flexShrink:0 }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit(); }}
-          style={{
-            width:32, height:32, borderRadius:8, backgroundColor:"#F3F4F6",
-            border:"none", cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-          }}
-        >
-          <Pencil size={14} color="#6B7280" />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          style={{
-            width:32, height:32, borderRadius:8, backgroundColor:"#FDECEA",
-            border:"none", cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-          }}
-        >
-          <Trash2 size={14} color="#E3000F" />
-        </button>
-      </div>
-    </div>
-
-    {reserve.photos.filter(p => p.caption !== "__locPhoto").length > 0 && (
-      <div style={{ display:"flex", gap:8 }}>
-        {reserve.photos.filter(p => p.caption !== "__locPhoto").slice(0, 2).map((photo) => (
-          <img key={photo.id} src={photo.url} alt={photo.caption}
-            style={{ width:80, height:80, borderRadius:10, objectFit:"cover" }} />
-        ))}
-        <div style={{
-          width:80, height:80, borderRadius:10,
-          border:"1.5px dashed #E5E7EB", backgroundColor:"#F3F4F6",
-          display:"flex", flexDirection:"column",
-          alignItems:"center", justifyContent:"center", gap:3,
-        }}>
-          <Plus size={16} color="#6B7280" />
-          <span style={{ fontSize:9, fontWeight:700, color:"#6B7280", textTransform:"uppercase" }}>
-            AJOUTER
-          </span>
-        </div>
-      </div>
-    )}
-  </div>
-);
 
 export default ReserveFormScreen;

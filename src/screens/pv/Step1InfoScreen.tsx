@@ -180,41 +180,25 @@ const Step1InfoScreen = () => {
             </div>
           </div>
           {(() => {
-            const count = step1.reserves?.length ?? 0;
+            const count       = step1.reserves?.length ?? 0;
             const hasReserves = count > 0;
             return (
-              <>
-                <button
-                  type="button"
-                  onClick={() => navigate(hasReserves ? "/pv-form/reserves" : "/pv-form/reserve")}
-                  style={{
-                    width: "100%",
-                    backgroundColor: hasReserves ? "#fff" : "#E3000F",
-                    color: hasReserves ? "#E3000F" : "#fff",
-                    border: hasReserves ? "2px solid #E3000F" : "none",
-                    borderRadius: 14, padding: "14px 20px",
-                    fontSize: 15, fontWeight: 700, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  }}
-                >
-                  <Plus size={18} />
-                  {hasReserves ? `Voir les réserves (${count})` : "Ajouter des Réserves"}
-                </button>
-                {hasReserves && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/pv-form/reserve")}
-                    style={{
-                      width: "100%", backgroundColor: "#E3000F", color: "#fff",
-                      border: "none", borderRadius: 14, padding: "12px 20px",
-                      fontSize: 14, fontWeight: 600, cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                    }}
-                  >
-                    <Plus size={16} /> Ajouter une réserve
-                  </button>
-                )}
-              </>
+              <button
+                type="button"
+                onClick={() => navigate(hasReserves ? "/pv-form/reserves" : "/pv-form/reserve")}
+                style={{
+                  width: "100%",
+                  backgroundColor: hasReserves ? "#fff" : "#E3000F",
+                  color: hasReserves ? "#E3000F" : "#fff",
+                  border: hasReserves ? "2px solid #E3000F" : "none",
+                  borderRadius: 14, padding: "14px 20px",
+                  fontSize: 15, fontWeight: 700, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}
+              >
+                <Plus size={18} />
+                {hasReserves ? `Voir les réserves (${count})` : "Ajouter une réserve"}
+              </button>
             );
           })()}
         </div>
