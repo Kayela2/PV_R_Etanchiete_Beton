@@ -3,32 +3,17 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Camera, Trash2, ArrowLeft, Plus, Pencil, Home, Loader2 } from "lucide-react";
 import { usePvFormStore } from "../../store";
+import { usePhotoCapture } from "../../hooks";
 import type { Reserve, ReservePhoto } from "../../types";
 import { ImageAnnotator } from "../../components/shared";
 
 const MAX_PHOTOS = 8;
 
-/**
- * Input superposé sur le bouton visible.
- * NE PAS utiliser `inset: 0` — non supporté sur Android WebView < Chrome 87.
- * Utiliser top/left/right/bottom explicitement pour compatibilité maximale.
- */
-const fileOverlay = {
-  position: "absolute" as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  opacity: 0,
-  width: "100%",
-  height: "100%",
-  cursor: "pointer",
-};
-
 const ReserveFormScreen = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const { formData, addReserve, updateReserve } = usePvFormStore();
+  const { importFromGallery, loading: loadingPhotos } = usePhotoCapture();
 
   const reserves = formData.step1.reserves ?? [];
   const existing = id ? reserves.find((r) => r.id === id) : undefined;
@@ -36,8 +21,6 @@ const ReserveFormScreen = () => {
 
   const [localisation,       setLocalisation]       = useState(existing?.localisation ?? "");
   const [detail,             setDetail]             = useState(existing?.detail       ?? "");
-  // Séparer les photos normales de la photo de localisation dès l'init.
-  // existing?.photos contient les deux types — on les split ici pour éviter les doublons dans buildReserve.
   const [photos,             setPhotos]             = useState<ReservePhoto[]>(
     existing?.photos.filter(p => p.caption !== "__locPhoto") ?? []
   );
@@ -46,11 +29,9 @@ const ReserveFormScreen = () => {
   );
   const [errors,             setErrors]             = useState<{ detail?: string }>({});
   const [saving,             setSaving]             = useState(false);
-  const [loadingPhotos,      setLoadingPhotos]      = useState(false);
   const [annotatingPhoto,    setAnnotatingPhoto]    = useState<ReservePhoto | null>(null);
   const [annotatingLocPhoto, setAnnotatingLocPhoto] = useState(false);
 
-  // Resync form fields when navigating to a different reserve (id change)
   useEffect(() => {
     const target = id ? reserves.find((r) => r.id === id) : undefined;
     setLocalisation(target?.localisation ?? "");
@@ -61,126 +42,33 @@ const ReserveFormScreen = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ── Lecture de fichiers ───────────────────────────────────────────────────────
-  // On extrait les File objects en tableau AVANT tout reset de l'input.
-  // Sur certains WebViews Android, e.target.value="" invalide e.target.files.
-  const readFileArray = (arr: File[], cb: (p: ReservePhoto[]) => void) => {
-    if (arr.length === 0) return;
-    setLoadingPhotos(true);
-    Promise.all(
-      arr.map(
-        (file) =>
-          new Promise<ReservePhoto>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              resolve({
-                id:      crypto.randomUUID(),
-                url:     (ev.target?.result as string) ?? "",
-                caption: file.name,
-              });
-            };
-            reader.onerror = () =>
-              resolve({ id: crypto.randomUUID(), url: "", caption: file.name });
-            reader.readAsDataURL(file);
-          })
-      )
-    ).then((results) => {
-      setLoadingPhotos(false);
-      const valid = results.filter((p) => p.url !== "");
-      if (valid.length > 0) cb(valid);
-    });
+  // ── Handlers photo ────────────────────────────────────────────────────────
+  const handleAddPhotos = async () => {
+    const newPhotos = await importFromGallery(true);
+    if (newPhotos.length > 0)
+      setPhotos(prev => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
   };
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // 1. Extraire les fichiers en tableau immédiatement
-    const arr = Array.from(e.target.files ?? []);
-    // 2. Réinitialiser APRÈS extraction (permet de re-sélectionner le même fichier)
-    e.target.value = "";
-    readFileArray(arr, (newPhotos) =>
-      setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS))
-    );
+  const handleAddLocPhoto = async () => {
+    const result = await importFromGallery(false);
+    if (result[0]) setLocPhoto({ ...result[0], caption: "__locPhoto" });
   };
 
-  const handleLocPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const arr = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    readFileArray(arr, (p) => setLocPhoto({ ...p[0], caption: "__locPhoto" }));
+  const handleReplacePhotoById = (targetId: string) => async () => {
+    const result = await importFromGallery(false);
+    if (result[0])
+      setPhotos(prev => prev.map(p => p.id === targetId ? { ...result[0], id: p.id } : p));
   };
 
-  // ── Validation ────────────────────────────────────────────────────────────────
-  const validate = () => {
-    const e: { detail?: string } = {};
-    if (!detail.trim()) e.detail = "Le détail de la réserve est requis";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+  const handleReplaceLocPhoto = async () => {
+    const result = await importFromGallery(false);
+    if (result[0]) setLocPhoto({ ...result[0], caption: "__locPhoto" });
   };
 
-  // ── Construction de la réserve ────────────────────────────────────────────────
-  const buildReserve = (): Reserve => {
-    const allPhotos = locPhoto ? [...photos, locPhoto] : photos;
-    return {
-      id:        existing?.id ?? crypto.randomUUID(),
-      localisation,
-      detail,
-      photos:    allPhotos,
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
-    };
-  };
-
-  // ── Sauvegarde ────────────────────────────────────────────────────────────────
-  const handleSave = () => {
-    if (!validate()) return;
-    setSaving(true);
-    const reserve = buildReserve();
-    if (isEdit) updateReserve(reserve);
-    else        addReserve(reserve);
-    setTimeout(() => {
-      navigate("/pv-form", { replace: true });
-    }, 300);
-  };
-
-  const resetForm = () => {
-    setLocalisation("");
-    setDetail("");
-    setPhotos([]);
-    setLocPhoto(null);
-    setErrors({});
-  };
-
-  const handleSaveAndAddAnother = () => {
-    if (!validate()) return;
-    addReserve(buildReserve());
-    resetForm();
-  };
-
-  // En mode édition, on met à jour — pas ajouter une nouvelle réserve en parallèle.
-  const canAddMore = !isEdit;
-
-  // ── Remplacement d'une photo par son id ──────────────────────────────────────
-  const handleReplacePhotoById = (targetId: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const arr = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    readFileArray(arr, (newPhotos) => {
-      if (newPhotos[0]) {
-        setPhotos((prev) =>
-          prev.map((p) => p.id === targetId ? { ...newPhotos[0], id: p.id } : p)
-        );
-      }
-    });
-  };
-
-  const handleReplaceLocPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const arr = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    readFileArray(arr, (p) => setLocPhoto({ ...p[0], caption: "__locPhoto" }));
-  };
-
-  // ── Annotation ────────────────────────────────────────────────────────────────
+  // ── Annotation ────────────────────────────────────────────────────────────
   const handleAnnotationSave = (annotated: string) => {
     if (!annotatingPhoto) return;
-    setPhotos((prev) =>
-      prev.map((p) => p.id === annotatingPhoto.id ? { ...p, url: annotated } : p)
-    );
+    setPhotos(prev => prev.map(p => p.id === annotatingPhoto.id ? { ...p, url: annotated } : p));
     setAnnotatingPhoto(null);
   };
 
@@ -190,10 +78,49 @@ const ReserveFormScreen = () => {
     setAnnotatingLocPhoto(false);
   };
 
+  // ── Validation ────────────────────────────────────────────────────────────
+  const validate = () => {
+    const e: { detail?: string } = {};
+    if (!detail.trim()) e.detail = "Le détail de la réserve est requis";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  // ── Construction de la réserve ────────────────────────────────────────────
+  const buildReserve = (): Reserve => ({
+    id:          existing?.id ?? crypto.randomUUID(),
+    localisation,
+    detail,
+    photos:      locPhoto ? [...photos, locPhoto] : photos,
+    createdAt:   existing?.createdAt ?? new Date().toISOString(),
+  });
+
+  // ── Sauvegarde ────────────────────────────────────────────────────────────
+  const handleSave = () => {
+    if (!validate()) return;
+    setSaving(true);
+    const reserve = buildReserve();
+    if (isEdit) updateReserve(reserve);
+    else        addReserve(reserve);
+    setTimeout(() => navigate("/pv-form", { replace: true }), 300);
+  };
+
+  const resetForm = () => {
+    setLocalisation(""); setDetail(""); setPhotos([]); setLocPhoto(null); setErrors({});
+  };
+
+  const handleSaveAndAddAnother = () => {
+    if (!validate()) return;
+    addReserve(buildReserve());
+    resetForm();
+  };
+
+  const canAddMore = !isEdit;
+
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100%", backgroundColor:"#fff", position:"relative" }}>
 
-      {/* ── Annotateur photo galerie ── */}
+      {/* ── Annotateurs ── */}
       {annotatingPhoto && (
         <ImageAnnotator
           imageUrl={annotatingPhoto.url}
@@ -287,25 +214,19 @@ const ReserveFormScreen = () => {
 
           {/* Bouton unique — 0 photo */}
           {photos.length === 0 && !loadingPhotos && (
-            <div style={{ position:"relative", marginBottom:12 }}>
-              <div style={{
-                width:"100%",
+            <button
+              onClick={handleAddPhotos}
+              style={{
+                width:"100%", marginBottom:12,
                 display:"flex", alignItems:"center", justifyContent:"center", gap:8,
                 backgroundColor:"#E3000F", color:"#fff",
                 borderRadius:100, padding:"14px 16px",
-                fontSize:14, fontWeight:700, pointerEvents:"none",
-              }}>
-                <Camera size={18} />
-                Prendre / importer une photo
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                style={fileOverlay}
-                onChange={handlePhotoCapture}
-              />
-            </div>
+                fontSize:14, fontWeight:700, border:"none", cursor:"pointer",
+              }}
+            >
+              <Camera size={18} />
+              Prendre / importer une photo
+            </button>
           )}
 
           {/* Grille photos */}
@@ -337,23 +258,17 @@ const ReserveFormScreen = () => {
                       <Pencil size={12} color="#6B7280" />
                     </button>
                     {/* Remplacer */}
-                    <div style={{ position:"relative", width:28, height:28 }}>
-                      <div style={{
-                        width:"100%", height:"100%", borderRadius:6,
-                        backgroundColor:"#F3F4F6",
+                    <button
+                      onClick={handleReplacePhotoById(photo.id)}
+                      title="Changer l'image"
+                      style={{
+                        width:28, height:28, borderRadius:6, backgroundColor:"#F3F4F6",
+                        border:"none", cursor:"pointer",
                         display:"flex", alignItems:"center", justifyContent:"center",
-                        pointerEvents:"none",
-                      }}>
-                        <Camera size={12} color="#6B7280" />
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        title="Changer l'image"
-                        style={fileOverlay}
-                        onChange={handleReplacePhotoById(photo.id)}
-                      />
-                    </div>
+                      }}
+                    >
+                      <Camera size={12} color="#6B7280" />
+                    </button>
                     {/* Supprimer */}
                     <button
                       onClick={() => setPhotos(prev => prev.filter(p => p.id !== photo.id))}
@@ -372,27 +287,21 @@ const ReserveFormScreen = () => {
 
               {/* Bouton ajouter d'autres photos */}
               {photos.length < MAX_PHOTOS && (
-                <div style={{ position:"relative", width:96, height:96 }}>
-                  <div style={{
-                    width:"100%", height:"100%", borderRadius:12,
+                <button
+                  onClick={handleAddPhotos}
+                  style={{
+                    width:96, height:96, borderRadius:12,
                     border:"2px dashed #E5E7EB", backgroundColor:"#F3F4F6",
                     display:"flex", flexDirection:"column",
                     alignItems:"center", justifyContent:"center", gap:4,
-                    pointerEvents:"none",
-                  }}>
-                    <Plus size={20} color="#6B7280" />
-                    <span style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase" }}>
-                      AJOUTER
-                    </span>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style={fileOverlay}
-                    onChange={handlePhotoCapture}
-                  />
-                </div>
+                    cursor:"pointer",
+                  }}
+                >
+                  <Plus size={20} color="#6B7280" />
+                  <span style={{ fontSize:10, fontWeight:700, color:"#6B7280", textTransform:"uppercase" }}>
+                    AJOUTER
+                  </span>
+                </button>
               )}
             </div>
           )}
@@ -438,7 +347,6 @@ const ReserveFormScreen = () => {
                 objectFit:"cover", border:"1px solid #E5E7EB", display:"block",
               }} />
               <div style={{ position:"absolute", top:8, right:8, display:"flex", gap:6 }}>
-                {/* Annoter */}
                 <button
                   onClick={() => setAnnotatingLocPhoto(true)}
                   title="Annoter"
@@ -452,26 +360,19 @@ const ReserveFormScreen = () => {
                 >
                   <Pencil size={14} color="#E3000F" />
                 </button>
-                {/* Remplacer */}
-                <div style={{ position:"relative", width:32, height:32 }}>
-                  <div style={{
-                    width:"100%", height:"100%", borderRadius:8,
+                <button
+                  onClick={handleReplaceLocPhoto}
+                  title="Changer l'image"
+                  style={{
+                    width:32, height:32, borderRadius:8,
                     backgroundColor:"rgba(255,255,255,0.9)",
+                    border:"none", cursor:"pointer",
                     display:"flex", alignItems:"center", justifyContent:"center",
                     boxShadow:"0 1px 4px rgba(0,0,0,0.15)",
-                    pointerEvents:"none",
-                  }}>
-                    <Camera size={14} color="#111827" />
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    title="Changer l'image"
-                    style={fileOverlay}
-                    onChange={handleReplaceLocPhoto}
-                  />
-                </div>
-                {/* Supprimer */}
+                  }}
+                >
+                  <Camera size={14} color="#111827" />
+                </button>
                 <button
                   onClick={() => setLocPhoto(null)}
                   title="Supprimer"
@@ -488,30 +389,24 @@ const ReserveFormScreen = () => {
               </div>
             </div>
           ) : (
-            /* Bouton ajouter photo localisation — overlay */
-            <div style={{ position:"relative", height:100 }}>
-              <div style={{
-                width:"100%", height:"100%", borderRadius:16,
+            <button
+              onClick={handleAddLocPhoto}
+              style={{
+                width:"100%", height:100, borderRadius:16,
                 border:"2px dashed #E5E7EB", backgroundColor:"#F3F4F6",
                 display:"flex", flexDirection:"column",
                 alignItems:"center", justifyContent:"center", gap:6,
-                pointerEvents:"none",
+                cursor:"pointer",
+              }}
+            >
+              <Camera size={24} color="#E3000F" />
+              <span style={{
+                fontSize:11, fontWeight:700, color:"#E3000F",
+                textTransform:"uppercase", letterSpacing:"0.08em",
               }}>
-                <Camera size={24} color="#E3000F" />
-                <span style={{
-                  fontSize:11, fontWeight:700, color:"#E3000F",
-                  textTransform:"uppercase", letterSpacing:"0.08em",
-                }}>
-                  Ajouter une image de localisation
-                </span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                style={fileOverlay}
-                onChange={handleLocPhoto}
-              />
-            </div>
+                Ajouter une image de localisation
+              </span>
+            </button>
           )}
         </div>
 
@@ -566,57 +461,51 @@ const ReserveFormScreen = () => {
         <div style={{ height:16 }} />
       </div>
 
-      {/* ── Retour / Ajouter / Sauvegarder ── */}
+      {/* ── Actions ── */}
       <div style={{
-        display:"flex", alignItems:"center", justifyContent:"space-between",
-        padding:"12px 20px", borderTop:"1px solid #F3F4F6",
-        backgroundColor:"#fff", flexShrink:0, gap:8,
+        display:"flex", flexDirection:"column", gap:8,
+        padding:"12px 20px 16px", borderTop:"1px solid #F3F4F6",
+        backgroundColor:"#fff", flexShrink:0,
       }}>
-        <button onClick={() => navigate(-1)} style={{
-          display:"flex", alignItems:"center", gap:6,
-          background:"none", border:"none", color:"#E3000F",
-          fontSize:14, fontWeight:600, cursor:"pointer", padding:0,
-        }}>
-          <ArrowLeft size={15} /> Retour
-        </button>
-
-        {canAddMore && (
-          <button onClick={handleSaveAndAddAnother} style={{
-            border:"1.5px dashed #D1D5DB", borderRadius:12,
-            padding:"8px 14px", background:"none", cursor:"pointer",
-            display:"flex", alignItems:"center", gap:6,
-          }}>
-            <div style={{
-              width:22, height:22, borderRadius:"50%",
-              border:"1.5px solid #D1D5DB",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              flexShrink:0,
-            }}>
-              <Plus size={12} color="#6B7280" />
-            </div>
-            <span style={{
-              fontSize:10, fontWeight:700, color:"#6B7280",
-              textTransform:"uppercase", letterSpacing:"0.07em",
-              whiteSpace:"nowrap",
-            }}>
-              Nouvelle réserve
-            </span>
-          </button>
-        )}
-
+        {/* Sauvegarder — pleine largeur, CTA principal */}
         <button onClick={handleSave} disabled={saving} style={{
-          backgroundColor:"#E3000F", color:"#fff", border:"none",
-          borderRadius:100, padding:"12px 24px",
+          width:"100%", backgroundColor:"#E3000F", color:"#fff", border:"none",
+          borderRadius:100, padding:"14px 16px",
           fontSize:14, fontWeight:700,
           cursor: saving ? "not-allowed" : "pointer",
-          whiteSpace:"nowrap", opacity: saving ? 0.8 : 1,
-          display:"flex", alignItems:"center", gap:6,
+          opacity: saving ? 0.8 : 1,
+          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
         }}>
           {saving
             ? <><Loader2 size={16} style={{ animation:"spin 1s linear infinite" }} /> Enregistrement…</>
             : isEdit ? "Sauvegarder la réserve" : "Sauvegarder"
           }
         </button>
+
+        {/* Retour + Nouvelle réserve */}
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={() => navigate(-1)} style={{
+            flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+            background:"none", border:"1.5px solid #E5E7EB", borderRadius:100,
+            color:"#6B7280", fontSize:14, fontWeight:600, cursor:"pointer", padding:"10px 8px",
+          }}>
+            <ArrowLeft size={15} /> Retour
+          </button>
+          {canAddMore && (
+            <button onClick={handleSaveAndAddAnother} style={{
+              flex:2, border:"1.5px dashed #D1D5DB", borderRadius:100,
+              padding:"10px 8px", background:"none", cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+            }}>
+              <Plus size={14} color="#6B7280" />
+              <span style={{
+                fontSize:13, fontWeight:700, color:"#6B7280", whiteSpace:"nowrap",
+              }}>
+                Nouvelle réserve
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Bottom nav ── */}

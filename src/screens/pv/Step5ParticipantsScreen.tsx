@@ -54,10 +54,10 @@ const Step5ParticipantsScreen = () => {
   });
 
   // ── Autres champs ──────────────────────────────────────────────────────────
-  // Réception : NON automatique si des réserves existent, OUI (verrouillé) sinon
   const receptionAcceptee = !hasReserves;
+  const today = new Date().toISOString().split("T")[0];
   const [miseEnConformite, setMiseEnConformite] = useState(
-    step5.miseEnConformiteLe ?? ""
+    step5.miseEnConformiteLe ?? today
   );
   const [envoyerEmail, setEnvoyerEmail] = useState(step5.envoyerEmail ?? false);
   const [email, setEmail] = useState(step5.emailDestinataire ?? "");
@@ -88,7 +88,7 @@ const Step5ParticipantsScreen = () => {
   const smacComplete   = nomFilled && signatureSmac !== null;
 
   const participantComplete = (p: LocalParticipant) =>
-    p.nom.trim() !== "" && p.signature !== null;
+    p.titre.trim() !== "" && p.nom.trim() !== "" && p.signature !== null;
 
   // ── Handlers participants ──────────────────────────────────────────────────
   const addParticipant = () => {
@@ -101,6 +101,7 @@ const Step5ParticipantsScreen = () => {
     setParticipants((prev) => prev.filter((p) => p.id !== id));
     setErrors((prev) => {
       const next = { ...prev };
+      delete next[`${id}_titre`];
       delete next[`${id}_nom`];
       delete next[`${id}_signature`];
       return next;
@@ -135,11 +136,9 @@ const Step5ParticipantsScreen = () => {
     if (!signatureSmac)     newErrors["signatureSmac"] = "La signature SMAC est requise";
 
     participants.forEach((p) => {
-      const hasAnyData = p.nom.trim() || p.titre.trim() || p.signature;
-      if (hasAnyData) {
-        if (!p.nom.trim())   newErrors[`${p.id}_nom`]       = "Le nom est requis";
-        if (!p.signature)    newErrors[`${p.id}_signature`]  = "La signature est requise";
-      }
+      if (!p.titre.trim())  newErrors[`${p.id}_titre`]     = "Le titre est requis";
+      if (!p.nom.trim())    newErrors[`${p.id}_nom`]       = "Le nom est requis";
+      if (!p.signature)     newErrors[`${p.id}_signature`] = "La signature est requise";
     });
 
     setErrors(newErrors);
@@ -337,14 +336,27 @@ const Step5ParticipantsScreen = () => {
                 </button>
               </div>
 
-              <Input
-                label="Titre"
-                placeholder="Ex: Conducteur de travaux"
-                value={participant.titre}
-                onChange={(e) => updateField(participant.id, "titre", e.target.value)}
-              />
-
+              {/* Titre — obligatoire en premier */}
               <div>
+                <Input
+                  label="Titre *"
+                  placeholder="Ex: Conducteur de travaux"
+                  value={participant.titre}
+                  onChange={(e) => updateField(participant.id, "titre", e.target.value)}
+                />
+                {errors[`${participant.id}_titre`] && (
+                  <p style={{ color: "#E3000F", fontSize: 11, margin: "4px 0 0 4px" }}>
+                    {errors[`${participant.id}_titre`]}
+                  </p>
+                )}
+              </div>
+
+              {/* Nom — activé seulement si Titre rempli */}
+              <div style={{
+                opacity: participant.titre.trim() ? 1 : 0.4,
+                pointerEvents: participant.titre.trim() ? "auto" : "none",
+                transition: "opacity 0.2s",
+              }}>
                 <Input
                   label="Nom du participant *"
                   placeholder="Jean Dupont"
@@ -358,9 +370,14 @@ const Step5ParticipantsScreen = () => {
                 )}
               </div>
 
-              {/* Signature + bouton ajout participant suivant côte à côte */}
+              {/* Signature — activée seulement si Nom rempli */}
               <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                <div style={{ flex: 1 }}>
+                <div style={{
+                  flex: 1,
+                  opacity: participant.nom.trim() ? 1 : 0.4,
+                  pointerEvents: participant.nom.trim() ? "auto" : "none",
+                  transition: "opacity 0.2s",
+                }}>
                   <SignatureCanvas
                     value={participant.signature ?? undefined}
                     onChange={(base64) => {
