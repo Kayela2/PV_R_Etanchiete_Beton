@@ -1,5 +1,5 @@
 // src/screens/pv/Step5ParticipantsScreen.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { UserPlus, Loader2, Trash2 } from "lucide-react";
 import { Input } from "../../components/ui";
@@ -55,14 +55,28 @@ const Step5ParticipantsScreen = () => {
 
   // ── Autres champs ──────────────────────────────────────────────────────────
   // Réception : NON automatique si des réserves existent, OUI (verrouillé) sinon
-  const [receptionAcceptee, setReceptionAcceptee] = useState(
-    hasReserves ? false : true
-  );
+  const receptionAcceptee = !hasReserves;
   const [miseEnConformite, setMiseEnConformite] = useState(
     step5.miseEnConformiteLe ?? ""
   );
   const [envoyerEmail, setEnvoyerEmail] = useState(step5.envoyerEmail ?? false);
   const [email, setEmail] = useState(step5.emailDestinataire ?? "");
+
+  // Persistance immédiate dans le store — empêche la perte de données si le
+  // composant se remonte (StrictMode, navigation aller-retour).
+  useEffect(() => {
+    updateStep5({
+      nomSmac,
+      signatureSmac: signatureSmac ?? undefined,
+      participants: participants.map((p) => ({
+        id:        p.id,
+        titre:     p.titre || undefined,
+        nom:       p.nom,
+        signature: p.signature ?? undefined,
+      })),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nomSmac, signatureSmac, participants]);
 
   // ── Validation / erreur ────────────────────────────────────────────────────
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -275,18 +289,13 @@ const Step5ParticipantsScreen = () => {
                     type="button"
                     onClick={addParticipant}
                     style={{
-                      flexShrink: 0,
-                      display: "flex", flexDirection: "column",
-                      alignItems: "center", justifyContent: "center", gap: 4,
+                      flexShrink: 0, width: 40, height: 40,
+                      display: "flex", alignItems: "center", justifyContent: "center",
                       border: "1.5px dashed #E3000F", borderRadius: 12,
-                      padding: "10px 10px", background: "none",
-                      cursor: "pointer", color: "#E3000F",
-                      fontSize: 11, fontWeight: 700, lineHeight: 1.3,
-                      textAlign: "center",
+                      background: "none", cursor: "pointer", color: "#E3000F",
                     }}
                   >
                     <UserPlus size={18} />
-                    Ajouter<br />participant
                   </button>
                 )}
               </div>
@@ -373,18 +382,13 @@ const Step5ParticipantsScreen = () => {
                     type="button"
                     onClick={addParticipant}
                     style={{
-                      flexShrink: 0,
-                      display: "flex", flexDirection: "column",
-                      alignItems: "center", justifyContent: "center", gap: 4,
+                      flexShrink: 0, width: 40, height: 40,
+                      display: "flex", alignItems: "center", justifyContent: "center",
                       border: "1.5px dashed #E3000F", borderRadius: 12,
-                      padding: "10px 10px", background: "none",
-                      cursor: "pointer", color: "#E3000F",
-                      fontSize: 11, fontWeight: 700, lineHeight: 1.3,
-                      textAlign: "center",
+                      background: "none", cursor: "pointer", color: "#E3000F",
                     }}
                   >
                     <UserPlus size={18} />
-                    Ajouter<br />participant
                   </button>
                 )}
               </div>
@@ -404,33 +408,29 @@ const Step5ParticipantsScreen = () => {
             gap: 16,
           }}
         >
-          {/* Réception acceptée */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Réception acceptée — automatique, toujours grisé */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            opacity: 0.45, pointerEvents: "none",
+          }}>
             <div>
               <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
                 Réception acceptée ?
               </span>
-              {!hasReserves && (
-                <p style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
-                  Aucune réserve — OUI par défaut
-                </p>
-              )}
+              <p style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
+                {hasReserves ? "NON — réserves en cours" : "OUI — aucune réserve"}
+              </p>
             </div>
-            <div style={{
-              display: "flex", gap: 8,
-              opacity: !hasReserves ? 0.45 : 1,
-              pointerEvents: !hasReserves ? "none" : "auto",
-            }}>
+            <div style={{ display: "flex", gap: 8 }}>
               {(["OUI", "NON"] as const).map((opt) => {
                 const active = opt === "OUI" ? receptionAcceptee : !receptionAcceptee;
                 return (
                   <button
                     key={opt}
                     type="button"
-                    onClick={() => setReceptionAcceptee(opt === "OUI")}
                     style={{
                       padding: "8px 16px", borderRadius: 10, border: "none",
-                      fontWeight: 700, fontSize: 13, cursor: "pointer",
+                      fontWeight: 700, fontSize: 13, cursor: "default",
                       backgroundColor: active ? "#E3000F" : "#F3F4F6",
                       color: active ? "#fff" : "#6B7280",
                     }}
