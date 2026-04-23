@@ -2,7 +2,7 @@
 import jsPDF from "jspdf";
 import type { Pv, ConformiteValue } from "../types";
 import { AGENCES, ETABLISSEMENTS } from "../data/referentiel";
-import smacLogoUrl from "../assets/smac-white-without-bg.png";
+import smacLogoUrl from "../assets/SmacLogo.png";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILITAIRES
@@ -80,16 +80,14 @@ function drawHeader(doc: jsPDF, pv: Pv, logoBase64: string) {
   doc.setFillColor(...WHITE);
   doc.rect(0, 0, W, 36, "F");
 
-  // Carré rouge logo (gauche)
-  doc.setFillColor(...RED);
-  doc.rect(ML, 7, 24, 22, "F");
+  // Logo sans fond (gauche)
   try {
-    doc.addImage(logoBase64, "PNG", ML + 1, 8, 22, 20);
+    doc.addImage(logoBase64, "PNG", ML, 7, 30, 22);
   } catch {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.setTextColor(...WHITE);
-    doc.text("SMAC", ML + 12, 20, { align: "center" });
+    doc.setTextColor(...DARK);
+    doc.text("SMAC", ML + 15, 20, { align: "center" });
   }
 
   // Titre principal (centré, sombre)
@@ -251,17 +249,12 @@ function natureTravauxBadge(doc: jsPDF, cur: Cursor, value: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function conformiteTable(doc: jsPDF, cur: Cursor, rows: { label: string; value?: ConformiteValue }[]) {
-  const ROW_H   = 9.5;
-  const HEAD_H  = 8;
-  const TOTAL   = HEAD_H + rows.length * ROW_H;
-
-  // Colonnes
-  const CK_W  = 22;           // largeur par colonne check
-  const LBL_W = CW - CK_W * 3;
-  const X_C   = ML + LBL_W + CK_W * 0.5;
-  const X_N   = ML + LBL_W + CK_W * 1.5;
-  const X_S   = ML + LBL_W + CK_W * 2.5;
-  const SEP_X = ML + LBL_W;
+  const ROW_H      = 9.5;
+  const HEAD_H     = 8;
+  const TOTAL      = HEAD_H + rows.length * ROW_H;
+  const BADGE_COL  = 40;              // largeur colonne résultat
+  const LBL_W      = CW - BADGE_COL;
+  const SEP_X      = ML + LBL_W;
 
   cur.check(TOTAL + 8);
 
@@ -273,9 +266,9 @@ function conformiteTable(doc: jsPDF, cur: Cursor, rows: { label: string; value?:
   // Header
   doc.setFillColor(234, 236, 240);
   doc.roundedRect(ML, cur.y, CW, HEAD_H + 2, 2, 2, "F");
-  doc.rect(ML, cur.y + 4, CW, HEAD_H - 2, "F"); // aplat bas du header arrondi
+  doc.rect(ML, cur.y + 4, CW, HEAD_H - 2, "F");
 
-  // Séparateur vertical header
+  // Séparateur vertical
   doc.setDrawColor(...BORDER);
   doc.setLineWidth(0.2);
   doc.line(SEP_X, cur.y + 2, SEP_X, cur.y + TOTAL);
@@ -283,10 +276,8 @@ function conformiteTable(doc: jsPDF, cur: Cursor, rows: { label: string; value?:
   doc.setFont("helvetica", "bold");
   doc.setFontSize(6.5);
   doc.setTextColor(...MID);
-  doc.text("ÉLÉMENT DE CONTRÔLE", ML + 5,   cur.y + 5.5);
-  doc.text("CONFORME",            X_C,       cur.y + 5.5, { align: "center" });
-  doc.text("NON CONF.",           X_N,       cur.y + 5.5, { align: "center" });
-  doc.text("S/O",                 X_S,       cur.y + 5.5, { align: "center" });
+  doc.text("ÉLÉMENT DE CONTRÔLE", ML + 5, cur.y + 5.5);
+  doc.text("RÉSULTAT", SEP_X + BADGE_COL / 2, cur.y + 5.5, { align: "center" });
 
   let ry = cur.y + HEAD_H;
 
@@ -296,35 +287,28 @@ function conformiteTable(doc: jsPDF, cur: Cursor, rows: { label: string; value?:
       doc.rect(ML, ry, CW, ROW_H, "F");
     }
 
-    // Label (avec wrap si trop long)
+    // Label
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...DARK);
     const llines = doc.splitTextToSize(row.label, LBL_W - 10) as string[];
     doc.text(llines[0], ML + 5, ry + ROW_H / 2 + 2.5);
 
-    // Cases à cocher
-    const box = (cx: number, active: boolean, color: RGB) => {
-      const S  = 5.5;
-      const bx = cx - S / 2;
-      const by = ry + ROW_H / 2 - S / 2;
-      if (active) {
-        doc.setFillColor(...color);
-        doc.roundedRect(bx, by, S, S, 1.2, 1.2, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(5.5);
-        doc.setTextColor(...WHITE);
-        doc.text("✓", cx, by + 4, { align: "center" });
-      } else {
-        doc.setDrawColor(...BORDER);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(bx, by, S, S, 1.2, 1.2, "S");
-      }
-    };
+    // Badge résultat
+    const isConforme    = row.value === "conforme";
+    const isNonConforme = row.value === "non-conforme";
+    const badgeText:  string = isConforme ? "Conforme" : isNonConforme ? "Non conforme" : "S/O";
+    const badgeColor: RGB    = isConforme ? GREEN : isNonConforme ? RED : GRAY;
+    const BADGE_W = 32;
+    const bx = SEP_X + (BADGE_COL - BADGE_W) / 2;
+    const by = ry + (ROW_H - 6) / 2;
 
-    box(X_C, row.value === "conforme",     GREEN);
-    box(X_N, row.value === "non-conforme", RED);
-    box(X_S, !row.value || row.value === "SO", GRAY);
+    doc.setFillColor(...badgeColor);
+    doc.roundedRect(bx, by, BADGE_W, 6, 1.5, 1.5, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6);
+    doc.setTextColor(...WHITE);
+    doc.text(badgeText, bx + BADGE_W / 2, by + 4.2, { align: "center" });
 
     if (i < rows.length - 1) {
       doc.setDrawColor(...BORDER);
@@ -459,54 +443,73 @@ function reserveCard(
 // SECTION SIGNATURES (SMAC + participants en grille 2 col)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function signaturesGrid(
-  doc: jsPDF, cur: Cursor,
-  signatories: { role: string; nom: string; titre?: string; signature?: string }[],
-) {
-  const COL_W2 = (CW - 8) / 2;
-  const SIG_H  = 22;
-  const BLK_H  = 48;
+interface SignatoryBlock {
+  header:     string;                            // ex: "SMAC" | "PARTICIPANT 1"
+  rows:       { label: string; value: string }[];// champs texte avec leur libellé exact
+  sigLabel:   string;                            // ex: "Signature SMAC" | "Signature"
+  signature?: string;
+}
 
-  for (let i = 0; i < signatories.length; i += 2) {
+function signaturesGrid(doc: jsPDF, cur: Cursor, blocks: SignatoryBlock[]) {
+  const COL_W2    = (CW - 8) / 2;
+  const SIG_H     = 22;
+  const HEAD_H    = 8;
+  const ROW_H     = 11;   // hauteur par champ texte (label + valeur)
+  const SIG_LBL_H = 5;
+
+  // Hauteur uniforme basée sur le bloc le plus chargé en champs
+  const maxRows = Math.max(...blocks.map((b) => b.rows.length), 1);
+  const BLK_H   = HEAD_H + maxRows * ROW_H + SIG_LBL_H + SIG_H + 8;
+
+  for (let i = 0; i < blocks.length; i += 2) {
     cur.check(BLK_H + 6);
 
-    [signatories[i], signatories[i + 1]].forEach((sig, ci) => {
-      if (!sig) return;
+    [blocks[i], blocks[i + 1]].forEach((blk, ci) => {
+      if (!blk) return;
       const x = ML + ci * (COL_W2 + 8);
 
-      // Étiquette rôle (fond gris)
+      // En-tête (fond gris)
       doc.setFillColor(...LGRAY);
-      doc.roundedRect(x, cur.y, COL_W2, 7, 1.5, 1.5, "F");
+      doc.roundedRect(x, cur.y, COL_W2, HEAD_H, 1.5, 1.5, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.5);
       doc.setTextColor(...MID);
-      doc.text(sig.role.toUpperCase(), x + 4, cur.y + 5);
+      doc.text(blk.header.toUpperCase(), x + 4, cur.y + 5.5);
 
-      // Nom
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.setTextColor(...DARK);
-      doc.text(sig.nom || "—", x, cur.y + 16);
-
-      // Titre / fonction
-      if (sig.titre) {
+      // Champs texte avec libellés exacts du formulaire
+      let ty = cur.y + HEAD_H + 4;
+      blk.rows.forEach((row) => {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
+        doc.setFontSize(6.5);
         doc.setTextColor(...GRAY);
-        doc.text(sig.titre.toUpperCase(), x, cur.y + 22);
-      }
+        doc.text(row.label.toUpperCase(), x, ty);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...DARK);
+        doc.text(row.value || "—", x, ty + 6);
+
+        ty += ROW_H;
+      });
+
+      // Libellé signature (aligné sous le dernier champ texte de la carte la plus haute)
+      const sigLabelY = cur.y + HEAD_H + maxRows * ROW_H + 4;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...GRAY);
+      doc.text(blk.sigLabel.toUpperCase(), x, sigLabelY);
 
       // Boîte signature
-      const BY = cur.y + 26;
+      const BY = sigLabelY + SIG_LBL_H;
       doc.setFillColor(...LLGRAY);
       doc.roundedRect(x, BY, COL_W2, SIG_H, 2, 2, "F");
       doc.setDrawColor(...BORDER);
       doc.setLineWidth(0.3);
       doc.roundedRect(x, BY, COL_W2, SIG_H, 2, 2, "S");
 
-      if (sig.signature) {
+      if (blk.signature) {
         try {
-          doc.addImage(sig.signature, imgFmt(sig.signature), x + 2, BY + 1, COL_W2 - 4, SIG_H - 2);
+          doc.addImage(blk.signature, imgFmt(blk.signature), x + 2, BY + 1, COL_W2 - 4, SIG_H - 2);
         } catch { /* silencieux */ }
       } else {
         doc.setFont("helvetica", "italic");
@@ -541,12 +544,6 @@ function receptionBlock(doc: jsPDF, cur: Cursor, pv: Pv) {
   });
   if (pv.step5?.miseEnConformiteLe)
     rows.push({ label: "Mise en conformité le", value: fmtDate(pv.step5.miseEnConformiteLe) });
-  rows.push({
-    label:   "Envoi automatique par email",
-    value:   pv.step5?.envoyerEmail ? `OUI${pv.step5.emailDestinataire ? ` — ${pv.step5.emailDestinataire}` : ""}` : "NON",
-    badge:   true,
-    badgeOk: !!pv.step5?.envoyerEmail,
-  });
 
   const ROW_H = 9;
   const TOTAL = rows.length * ROW_H + 6;
@@ -667,7 +664,7 @@ async function buildPvDoc(pv: Pv): Promise<{ doc: jsPDF; filename: string }> {
 
   // ── 3. ÉTAT DE SURFACE ────────────────────────────────────────────────────
   if (pv.step2?.etatSurface) {
-    secTitle(doc, cur, "État de surface & partie courante", "* Conformité selon DTU 43.1");
+    secTitle(doc, cur, "État de surface & partie courante");
     conformiteTable(doc, cur, [
       { label: "Régularité du support (absence de flèches)", value: pv.step2.etatSurface.regulariteSupport },
       { label: "Propreté et absence de corps étrangers",     value: pv.step2.etatSurface.propreteSupport   },
@@ -704,33 +701,36 @@ async function buildPvDoc(pv: Pv): Promise<{ doc: jsPDF; filename: string }> {
   }
 
   // ── 6. SIGNATURES ─────────────────────────────────────────────────────────
-  const hasSmac = !!(pv.step5?.nomSmac);
+  const hasSmac      = !!(pv.step5?.nomSmac);
   const participants = pv.step5?.participants ?? [];
 
   if (hasSmac || participants.length > 0) {
     secTitle(doc, cur, "Signatures");
 
-    const signatories: { role: string; nom: string; titre?: string; signature?: string }[] = [];
+    const blocks: SignatoryBlock[] = [];
 
     if (hasSmac) {
-      signatories.push({
-        role:      "Pour SMAC (l'Entreprise)",
-        nom:       pv.step5!.nomSmac,
-        titre:     "SMAC",
+      blocks.push({
+        header:    "SMAC",
+        rows:      [{ label: "Noms SMAC", value: pv.step5!.nomSmac }],
+        sigLabel:  "Signature SMAC",
         signature: pv.step5!.signatureSmac,
       });
     }
 
-    participants.forEach((p) => {
-      signatories.push({
-        role:      p.titre ? `Pour le ${p.titre}` : "Pour le Client",
-        nom:       p.nom,
-        titre:     p.titre,
+    participants.forEach((p, i) => {
+      const rows: SignatoryBlock["rows"] = [];
+      if (p.titre) rows.push({ label: "Titre",               value: p.titre });
+      rows.push(    { label: "Nom du participant", value: p.nom   });
+      blocks.push({
+        header:    `Participant ${i + 1}`,
+        rows,
+        sigLabel:  "Signature",
         signature: p.signature,
       });
     });
 
-    signaturesGrid(doc, cur, signatories);
+    signaturesGrid(doc, cur, blocks);
   }
 
   // ── 7. RÉCEPTION & CLÔTURE ────────────────────────────────────────────────

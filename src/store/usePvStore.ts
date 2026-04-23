@@ -1,14 +1,16 @@
 // src/store/usePvStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Pv } from "../types";
+import type { Pv, PvVersion } from "../types";
+
+const MAX_VERSIONS = 5;
 
 interface PvStore {
-  pvList: Pv[];
-  addPv:    (pv: Pv)          => void;
-  updatePv: (pv: Pv)          => void;
-  removePv: (id: string)      => void;
-  getPvById:(id: string)      => Pv | undefined;
+  pvList:    Pv[];
+  addPv:     (pv: Pv)     => void;
+  updatePv:  (pv: Pv)     => void;
+  removePv:  (id: string) => void;
+  getPvById: (id: string) => Pv | undefined;
 }
 
 export const usePvStore = create<PvStore>()(
@@ -17,11 +19,34 @@ export const usePvStore = create<PvStore>()(
       pvList: [],
 
       addPv: (pv) =>
-        set((state) => ({ pvList: [pv, ...state.pvList] })),
+        set((state) => ({
+          pvList: [{ ...pv, versions: [] }, ...state.pvList],
+        })),
 
       updatePv: (pv) =>
         set((state) => ({
-          pvList: state.pvList.map((p) => (p.id === pv.id ? pv : p)),
+          pvList: state.pvList.map((p) => {
+            if (p.id !== pv.id) return p;
+
+            // Snapshot de l'état actuel AVANT la mise à jour
+            const { versions: _v, ...rest } = p;
+            const newVersion: PvVersion = {
+              versionId: crypto.randomUUID(),
+              savedAt:   new Date().toISOString(),
+              snapshot:  rest,
+            };
+
+            const updatedVersions = [
+              ...(p.versions ?? []),
+              newVersion,
+            ].slice(-MAX_VERSIONS);
+
+            return {
+              ...pv,
+              updatedAt: new Date().toISOString(),
+              versions:  updatedVersions,
+            };
+          }),
         })),
 
       removePv: (id) =>

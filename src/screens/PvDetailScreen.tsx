@@ -1,6 +1,6 @@
 // src/screens/PvDetailScreen.tsx
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Pencil, Home } from "lucide-react";
+import { ArrowLeft, FileText, Pencil, Home, History } from "lucide-react";
 import { usePvStore, usePvFormStore } from "../store";
 import { AGENCES, ETABLISSEMENTS } from "../data/referentiel";
 import { format } from "date-fns";
@@ -79,14 +79,27 @@ const PvDetailScreen = () => {
           </p>
         </div>
 
-        {/* Bouton Modifier — charge le PV dans le formulaire */}
-        <button onClick={handleEdit} style={{
-          width: 36, height: 36, borderRadius: "50%",
-          backgroundColor: "#FDECEA", border: "none", cursor: "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Pencil size={16} color="#E3000F" />
-        </button>
+        {/* Historique + Modifier */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => navigate(`/pv/${pv.id}/history`)}
+            title="Historique des versions"
+            style={{
+              width: 36, height: 36, borderRadius: "50%",
+              backgroundColor: "#F3F4F6", border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <History size={16} color="#6B7280" />
+          </button>
+          <button onClick={handleEdit} title="Modifier" style={{
+            width: 36, height: 36, borderRadius: "50%",
+            backgroundColor: "#FDECEA", border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Pencil size={16} color="#E3000F" />
+          </button>
+        </div>
       </div>
 
       {/* ── Contenu scrollable ── */}

@@ -78,13 +78,22 @@ export interface PvStep5 {
 
 export type PvStatut = "brouillon" | "enregistre";
 
+// Snapshot immuable d'un PV à un instant T (sans l'historique lui-même)
+export interface PvVersion {
+  versionId: string;
+  savedAt:   string;  // ISO datetime
+  snapshot:  Omit<Pv, "versions">;
+}
+
 export interface Pv {
   id:        string;
   statut:    PvStatut;
   createdAt: string;
+  updatedAt?: string;
   step1:     PvStep1;
   step2:     PvStep2;
   step5:     PvStep5;
+  versions?: PvVersion[];  // max 5 — snapshots des états précédents
 }
 
 // ------- Données du formulaire en cours -------

@@ -4,6 +4,7 @@ import SplashScreen    from "../screens/SplashScreen";
 import HomeScreen      from "../screens/HomeScreen";
 import PvFormLayout    from "../screens/pv/PvFormLayout";
 import PvDetailScreen  from "../screens/PvDetailScreen";
+import PvHistoryScreen from "../screens/pv/PvHistoryScreen";
 
 const AppNavigator = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -17,10 +18,11 @@ const AppNavigator = () => {
 
   return (
     <Routes>
-      <Route path="/"          element={<HomeScreen />} />
-      <Route path="/pv/:id"    element={<PvDetailScreen />} />
-      <Route path="/pv-form/*" element={<PvFormLayout />} />
-      <Route path="*"          element={<Navigate to="/" replace />} />
+      <Route path="/"                element={<HomeScreen />} />
+      <Route path="/pv/:id"          element={<PvDetailScreen />} />
+      <Route path="/pv/:id/history"  element={<PvHistoryScreen />} />
+      <Route path="/pv-form/*"       element={<PvFormLayout />} />
+      <Route path="*"                element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
