@@ -36,20 +36,20 @@ const HomeScreen = () => {
           <img
             src={smacLogo}
             alt="SMAC"
-            style={{ height: 34, width: "auto", objectFit: "contain" }}
+            style={{ height: 30, width: "auto", objectFit: "contain" }}
           />
 
           {/* Titre centré */}
           <div style={{ textAlign: "center", flex: 1, padding: "0 8px" }}>
             <p style={{
-              color: "#E3000F", fontWeight: 800, fontSize: 18,
+              color: "#E3000F", fontWeight: 800, fontSize: 16,
               lineHeight: 1.0, textTransform: "uppercase", letterSpacing: "0.02em",
               margin: 0,
             }}>
               P.V DE RÉCEPTION SUPPORT
             </p>
             <p style={{
-              color: "#E3000F", fontWeight: 800, fontSize: 18,
+              color: "#E3000F", fontWeight: 800, fontSize: 16,
               lineHeight: 1.0, textTransform: "uppercase", letterSpacing: "0.02em",
               margin: 0,
             }}>
