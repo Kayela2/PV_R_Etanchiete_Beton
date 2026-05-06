@@ -1,10 +1,9 @@
 // src/screens/PvDetailScreen.tsx
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, FileText, Pencil, Home, History } from "lucide-react";
+import { ArrowLeft, FileText, Pencil, Home, History, ChevronRight } from "lucide-react";
 import { usePvStore, usePvFormStore } from "../store";
 import { AGENCES, ETABLISSEMENTS } from "../data/referentiel";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import type { ConformiteValue } from "../types";
 import { generatePvPdf } from "../utils/generatePvPdf";
 
@@ -35,9 +34,9 @@ const PvDetailScreen = () => {
   const agence        = AGENCES.find((a) => a.id === pv.step1?.agenceId);
   const etablissement = ETABLISSEMENTS.find((e) => e.id === pv.step1?.etablissementId);
   const dateLabel     = pv.step1?.dateInspection
-    ? format(new Date(pv.step1.dateInspection), "dd MMMM yyyy", { locale: fr }) : "—";
+    ? format(new Date(pv.step1.dateInspection), "dd/MM/yyyy") : "—";
   const createdLabel  = pv.createdAt
-    ? format(new Date(pv.createdAt), "dd MMM yyyy à HH:mm", { locale: fr }) : "—";
+    ? format(new Date(pv.createdAt), "dd/MM/yyyy à HH:mm") : "—";
 
   const handleEdit = () => {
     loadFromPv(pv);          // pré-remplit le formulaire avec toutes les données
@@ -142,36 +141,47 @@ const PvDetailScreen = () => {
           )}
         </Section>
 
-        {/* Réserves */}
+        {/* Réserves — bouton de navigation vers la liste */}
         {(pv.step1?.reserves?.length ?? 0) > 0 && (
           <Section title={`Réserves — ${pv.step1!.reserves!.length} / 8`}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {pv.step1!.reserves!.map((r, i) => (
-                <div key={r.id} style={{
-                  borderLeft: "3px solid #E3000F", paddingLeft: 12,
-                  paddingBottom: i < pv.step1!.reserves!.length - 1 ? 12 : 0,
-                  borderBottom: i < pv.step1!.reserves!.length - 1 ? "1px solid #F3F4F6" : "none",
-                }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: "#E3000F", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
-                    Réserve #{String(i + 1).padStart(2, "0")}
-                  </p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
-                    {r.localisation || "Sans localisation"}
-                  </p>
-                  <p style={{ fontSize: 12, color: "#6B7280", marginBottom: 8, lineHeight: 1.5 }}>
-                    {r.detail}
-                  </p>
-                  {r.photos.length > 0 && (
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {r.photos.slice(0, 3).map((ph) => (
-                        <img key={ph.id} src={ph.url} alt={ph.caption}
-                          style={{ width: 60, height: 60, borderRadius: 8, objectFit: "cover", border: "1px solid #E5E7EB" }} />
-                      ))}
+            {/* Aperçu miniatures */}
+            {(() => {
+              const allPhotos = pv.step1!.reserves!
+                .flatMap(r => r.photos.filter(p => p.caption !== "__locPhoto"))
+                .slice(0, 4);
+              return allPhotos.length > 0 ? (
+                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                  {allPhotos.map((ph) => (
+                    <img key={ph.id} src={ph.url} alt=""
+                      style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", border: "1px solid #E5E7EB" }} />
+                  ))}
+                  {pv.step1!.reserves!.flatMap(r => r.photos.filter(p => p.caption !== "__locPhoto")).length > 4 && (
+                    <div style={{
+                      width: 52, height: 52, borderRadius: 10, backgroundColor: "#F3F4F6",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: "#6B7280",
+                    }}>
+                      +{pv.step1!.reserves!.flatMap(r => r.photos.filter(p => p.caption !== "__locPhoto")).length - 4}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              ) : null;
+            })()}
+
+            {/* Bouton vers la page liste */}
+            <button
+              onClick={() => navigate(`/pv/${pv.id}/reserves`)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "14px 16px", borderRadius: 14,
+                backgroundColor: "#FDECEA", border: "none", cursor: "pointer",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#E3000F" }}>
+                Voir les {pv.step1!.reserves!.length} réserve{pv.step1!.reserves!.length > 1 ? "s" : ""}
+              </span>
+              <ChevronRight size={18} color="#E3000F" />
+            </button>
           </Section>
         )}
 
@@ -249,7 +259,7 @@ const PvDetailScreen = () => {
             <Row label="Réception acceptée" value={pv.step5?.receptionAcceptee ? "Oui" : "Non"} />
             {pv.step5?.miseEnConformiteLe && (
               <Row label="Mise en conformité le"
-                value={format(new Date(pv.step5.miseEnConformiteLe), "dd MMM yyyy", { locale: fr })} />
+                value={format(new Date(pv.step5.miseEnConformiteLe), "dd/MM/yyyy")} />
             )}
           </Section>
         )}

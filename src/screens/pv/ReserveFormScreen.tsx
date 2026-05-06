@@ -5,7 +5,7 @@ import { Camera, Trash2, ArrowLeft, Plus, Pencil, Home, Loader2 } from "lucide-r
 import { usePvFormStore } from "../../store";
 import { usePhotoCapture } from "../../hooks";
 import type { Reserve, ReservePhoto } from "../../types";
-import { ImageAnnotator } from "../../components/shared";
+import { ImageAnnotator, ConfirmModal } from "../../components/shared";
 
 const MAX_PHOTOS = 8;
 
@@ -31,6 +31,29 @@ const ReserveFormScreen = () => {
   const [saving,             setSaving]             = useState(false);
   const [annotatingPhoto,    setAnnotatingPhoto]    = useState<ReservePhoto | null>(null);
   const [annotatingLocPhoto, setAnnotatingLocPhoto] = useState(false);
+  const [showLeaveModal,     setShowLeaveModal]     = useState(false);
+  const [pendingPath,        setPendingPath]        = useState<string | null>(null);
+
+  const isDirty = isEdit
+    ? localisation !== (existing?.localisation ?? "")
+      || detail !== (existing?.detail ?? "")
+      || photos.length !== (existing?.photos.filter(p => p.caption !== "__locPhoto").length ?? 0)
+      || !!locPhoto !== !!existing?.photos.find(p => p.caption === "__locPhoto")
+    : localisation !== "" || detail !== "" || photos.length > 0 || locPhoto !== null;
+
+  const handleNavigateAway = (path?: string) => {
+    if (isDirty) {
+      setPendingPath(path ?? null);
+      setShowLeaveModal(true);
+    } else {
+      if (path) navigate(path); else navigate(-1);
+    }
+  };
+
+  const handleConfirmLeave = () => {
+    setShowLeaveModal(false);
+    if (pendingPath) navigate(pendingPath); else navigate(-1);
+  };
 
   useEffect(() => {
     const target = id ? reserves.find((r) => r.id === id) : undefined;
@@ -136,6 +159,17 @@ const ReserveFormScreen = () => {
         />
       )}
 
+      {/* ── Modal confirmation quitter ── */}
+      <ConfirmModal
+        isOpen={showLeaveModal}
+        title="Quitter sans sauvegarder ?"
+        message="Des modifications non sauvegardées seront perdues. Voulez-vous continuer ?"
+        confirmLabel="Quitter"
+        cancelLabel="Rester"
+        onConfirm={handleConfirmLeave}
+        onCancel={() => setShowLeaveModal(false)}
+      />
+
       {/* ── Header ── */}
       {(() => {
         const reserveNum = isEdit
@@ -147,7 +181,7 @@ const ReserveFormScreen = () => {
             padding:"24px 20px 16px", borderBottom:"1px solid #E5E7EB",
             flexShrink: 0,
           }}>
-            <button onClick={() => navigate(-1)} style={{
+            <button onClick={() => handleNavigateAway()} style={{
               width:36, height:36, borderRadius:"50%", backgroundColor:"#F3F4F6",
               border:"none", cursor:"pointer",
               display:"flex", alignItems:"center", justifyContent:"center",
@@ -217,15 +251,20 @@ const ReserveFormScreen = () => {
             <button
               onClick={handleAddPhotos}
               style={{
-                width:"100%", marginBottom:12,
-                display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-                backgroundColor:"#E3000F", color:"#fff",
-                borderRadius:100, padding:"14px 16px",
-                fontSize:14, fontWeight:700, border:"none", cursor:"pointer",
+                width:"100%", height:100, borderRadius:16,
+                border:"2px dashed #E5E7EB", backgroundColor:"#F3F4F6",
+                display:"flex", flexDirection:"column",
+                alignItems:"center", justifyContent:"center", gap:6,
+                cursor:"pointer", marginBottom:12,
               }}
             >
-              <Camera size={18} />
-              Prendre / importer une photo
+              <Camera size={24} color="#E3000F" />
+              <span style={{
+                fontSize:11, fontWeight:700, color:"#E3000F",
+                textTransform:"uppercase", letterSpacing:"0.08em",
+              }}>
+                Prendre / importer une photo
+              </span>
             </button>
           )}
 
@@ -444,7 +483,7 @@ const ReserveFormScreen = () => {
         {/* ── Bouton "Voir toutes les réserves" ── */}
         {reserves.length > 0 && (
           <button
-            onClick={() => navigate("/pv-form/reserves")}
+            onClick={() => handleNavigateAway("/pv-form/reserves")}
             style={{
               width:"100%", marginBottom:4,
               border:"1.5px solid #E3000F", borderRadius:14,
@@ -484,7 +523,7 @@ const ReserveFormScreen = () => {
 
         {/* Retour + Nouvelle réserve */}
         <div style={{ display:"flex", gap:8 }}>
-          <button onClick={() => navigate(-1)} style={{
+          <button onClick={() => handleNavigateAway()} style={{
             flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6,
             background:"none", border:"1.5px solid #E5E7EB", borderRadius:100,
             color:"#6B7280", fontSize:14, fontWeight:600, cursor:"pointer", padding:"10px 8px",

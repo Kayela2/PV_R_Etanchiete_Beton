@@ -1,6 +1,6 @@
 // src/screens/pv/Step6SuccessScreen.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ShieldCheck, FileText, Calendar, ArrowRight, Mail, Download, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { usePvStore } from "../../store";
 import { format } from "date-fns";
@@ -12,8 +12,11 @@ type ActionResult = { success: boolean; message: string } | null;
 
 const Step6SuccessScreen = () => {
   const navigate   = useNavigate();
+  const location   = useLocation();
   const { pvList } = usePvStore();
-  const lastPv     = pvList[0];
+  // En mode édition, l'ID du PV édité est transmis via navigate state
+  const pvId   = (location.state as { pvId?: string } | null)?.pvId;
+  const lastPv = pvId ? (pvList.find((p) => p.id === pvId) ?? pvList[0]) : pvList[0];
 
   const [loading, setLoading] = useState<ActionType | null>(null);
   const [result,  setResult]  = useState<ActionResult>(null);

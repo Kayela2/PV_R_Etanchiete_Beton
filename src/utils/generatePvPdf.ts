@@ -749,8 +749,9 @@ async function buildPvDoc(pv: Pv): Promise<{ doc: jsPDF; filename: string }> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function generatePvPdf(pv: Pv): Promise<void> {
-  const { doc, filename } = await buildPvDoc(pv);
-  doc.save(filename);
+  const { doc } = await buildPvDoc(pv);
+  const url = doc.output("bloburl") as unknown as string;
+  window.open(url, "_blank");
 }
 
 export async function generatePvPdfBlob(pv: Pv): Promise<{ blob: Blob; filename: string }> {

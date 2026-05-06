@@ -74,7 +74,7 @@ const Step1InfoScreen = () => {
 
   const [planReperage, setPlanReperage] = useState<string>(step1.planReperage ?? "");
 
-  const { register, handleSubmit, control, watch, formState: { errors } } =
+  const { register, handleSubmit, control, watch, getValues, formState: { errors } } =
     useForm<FormValues>({
       resolver: zodResolver(schema),
       defaultValues: {
@@ -185,7 +185,13 @@ const Step1InfoScreen = () => {
             return (
               <button
                 type="button"
-                onClick={() => navigate(hasReserves ? "/pv-form/reserves" : "/pv-form/reserve")}
+                onClick={() => {
+                  updateStep1({
+                    ...getValues(),
+                    planReperage: planReperage as "oui" | "non" | undefined || undefined,
+                  });
+                  navigate(hasReserves ? "/pv-form/reserves" : "/pv-form/reserve");
+                }}
                 style={{
                   width: "100%",
                   backgroundColor: hasReserves ? "#fff" : "#E3000F",

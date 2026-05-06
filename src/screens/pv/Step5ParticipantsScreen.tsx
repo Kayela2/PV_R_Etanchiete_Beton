@@ -32,7 +32,7 @@ const newParticipant = (): LocalParticipant => ({
 
 const Step5ParticipantsScreen = () => {
   const navigate = useNavigate();
-  const { formData, updateStep5, prevStep } = usePvFormStore();
+  const { formData, updateStep5, prevStep, editingPvId } = usePvFormStore();
   const { savePv } = usePvForm();
   const step5       = formData.step5;
   const hasReserves = (formData.step1.reserves?.length ?? 0) > 0;
@@ -148,53 +148,58 @@ const Step5ParticipantsScreen = () => {
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
+    // Capturer l'ID avant que savePv() appelle resetForm() (mode édition)
+    const targetPvId = editingPvId ?? undefined;
+    try {
+      const mappedParticipants: Participant[] = participants
+        .filter((p) => p.nom.trim())
+        .map((p) => ({
+          id: p.id,
+          titre: p.titre || undefined,
+          nom: p.nom,
+          signature: p.signature ?? undefined,
+        }));
 
-    const mappedParticipants: Participant[] = participants
-      .filter((p) => p.nom.trim())
-      .map((p) => ({
-        id: p.id,
-        titre: p.titre || undefined,
-        nom: p.nom,
-        signature: p.signature ?? undefined,
-      }));
+      updateStep5({
+        nomSmac,
+        signatureSmac: signatureSmac ?? undefined,
+        participants: mappedParticipants,
+        receptionAcceptee,
+        miseEnConformiteLe: miseEnConformite || undefined,
+        envoyerEmail,
+        emailDestinataire: email || undefined,
+      });
 
-    updateStep5({
-      nomSmac,
-      signatureSmac: signatureSmac ?? undefined,
-      participants: mappedParticipants,
-      receptionAcceptee,
-      miseEnConformiteLe: miseEnConformite || undefined,
-      envoyerEmail,
-      emailDestinataire: email || undefined,
-    });
+      savePv();
 
-    savePv();
-
-    // Envoi automatique par email si adresse renseignée
-    if (envoyerEmail && email.trim()) {
-      try {
-        const lastPv = usePvStore.getState().pvList[0];
-        if (lastPv) {
-          const { blob, filename } = await generatePvPdfBlob(lastPv);
-          const file = new File([blob], filename, { type: "application/pdf" });
-          if (navigator.canShare?.({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: `PV SMAC — ${lastPv.step1?.chantier ?? ""}`,
-              text:  `Procès-verbal SMAC — Réf. : ${lastPv.id}`,
-            });
-          } else {
-            const subject = encodeURIComponent(`PV SMAC — ${lastPv.step1?.chantier ?? ""}`);
-            const body    = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le procès-verbal ${lastPv.id}.\n\nCordialement,\nSMAC`);
-            window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+      // Envoi automatique par email si adresse renseignée
+      if (envoyerEmail && email.trim()) {
+        try {
+          const lastPv = usePvStore.getState().pvList[0];
+          if (lastPv) {
+            const { blob, filename } = await generatePvPdfBlob(lastPv);
+            const file = new File([blob], filename, { type: "application/pdf" });
+            if (navigator.canShare?.({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: `PV SMAC — ${lastPv.step1?.chantier ?? ""}`,
+                text:  `Procès-verbal SMAC — Réf. : ${lastPv.id}`,
+              });
+            } else {
+              const subject = encodeURIComponent(`PV SMAC — ${lastPv.step1?.chantier ?? ""}`);
+              const body    = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le procès-verbal ${lastPv.id}.\n\nCordialement,\nSMAC`);
+              window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+            }
           }
-        }
-      } catch { /* silencieux si l'utilisateur annule le partage */ }
-    }
+        } catch { /* silencieux si l'utilisateur annule le partage */ }
+      }
 
-    setTimeout(() => {
-      navigate("/pv-form/step6", { replace: true });
-    }, 300);
+      // Laisser le spinner visible 1.5 s pour l'UX puis afficher l'étape 4
+      await new Promise<void>((r) => setTimeout(r, 1500));
+      navigate("/pv-form/step6", { replace: true, state: { pvId: targetPvId } });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => setShowCancelModal(true);

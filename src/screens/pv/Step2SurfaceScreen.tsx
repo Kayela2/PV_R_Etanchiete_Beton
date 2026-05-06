@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToggleGroup } from "../../components/ui";
 import { usePvFormStore } from "../../store";
+import { useFormBack } from "./PvFormLayout";
 import type { ConformiteValue, PvStep2 } from "../../types";
 
 const SO: ConformiteValue = "SO";
@@ -55,7 +56,8 @@ const TwoOptionToggle = ({
 // ── Écran ────────────────────────────────────────────────────────────────────
 const Step2SurfaceScreen = () => {
   const navigate = useNavigate();
-  const { formData, updateStep2, nextStep, prevStep } = usePvFormStore();
+  const handleBack = useFormBack();
+  const { formData, updateStep2, nextStep } = usePvFormStore();
   const s2 = formData.step2;
 
   // ── Nature des travaux ───────────────────────────────────────────────────
@@ -97,8 +99,6 @@ const Step2SurfaceScreen = () => {
     nextStep();
     navigate("/pv-form/step5");
   };
-
-  const handlePrev = () => { prevStep(); navigate(-1); };
 
   return (
     <div style={S.page}>
@@ -192,7 +192,7 @@ const Step2SurfaceScreen = () => {
         </div>
       </div>
 
-      <NavButtons onPrev={handlePrev} onNext={handleNext} />
+      <NavButtons onPrev={handleBack} onNext={handleNext} />
     </div>
   );
 };

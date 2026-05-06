@@ -1,5 +1,5 @@
 // src/screens/pv/PvFormLayout.tsx
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, createContext, useContext } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Home } from "lucide-react";
 import { StepIndicator } from "../../components/shared";
@@ -14,10 +14,18 @@ import AllReservesScreen       from "./AllReservesScreen";
 
 const TOTAL_STEPS = 4;
 
+export const FormBackContext = createContext<() => void>(() => {});
+export const useFormBack = () => useContext(FormBackContext);
+
 const PvFormLayout = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { currentStep, prevStep, resetForm } = usePvFormStore();
+  const { resetForm } = usePvFormStore();
+
+  const displayStep = pathname.includes("/step6") ? TOTAL_STEPS
+    : pathname.includes("/step5") ? 3
+    : pathname.includes("/step2") ? 2
+    : 1;
   const [showConfirm, setShowConfirm] = useState(false);
 
   // Sur les écrans de réserve on cache le header/stepper principal
@@ -30,10 +38,9 @@ const PvFormLayout = () => {
   }, [pathname]);
 
   const handleBack = () => {
-    if (currentStep === 1) {
+    if (displayStep === 1) {
       setShowConfirm(true);
     } else {
-      prevStep();
       navigate(-1);
     }
   };
@@ -44,6 +51,7 @@ const PvFormLayout = () => {
   };
 
   return (
+    <FormBackContext.Provider value={handleBack}>
     <div style={{
       display: "flex", flexDirection: "column",
       height: "100%", position: "relative",
@@ -67,11 +75,11 @@ const PvFormLayout = () => {
             </button>
             <h1 style={{ fontSize: 16, fontWeight: 900, color: "#111827" }}>Nouveau PV</h1>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#E3000F" }}>
-              Étape {currentStep} sur {TOTAL_STEPS}
+              Étape {displayStep} sur {TOTAL_STEPS}
             </span>
           </div>
           <div style={{ padding: "12px 20px", flexShrink: 0 }}>
-            <StepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+            <StepIndicator currentStep={displayStep} totalSteps={TOTAL_STEPS} />
           </div>
         </>
       )}
@@ -118,6 +126,7 @@ const PvFormLayout = () => {
         onCancel={() => setShowConfirm(false)}
       />
     </div>
+    </FormBackContext.Provider>
   );
 };
 

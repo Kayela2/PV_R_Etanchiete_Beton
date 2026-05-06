@@ -5,6 +5,7 @@ import { Plus, Search, User, Home, FileText } from "lucide-react";
 import { usePvStore } from "../store";
 import { PvCard } from "../components/shared";
 import smacLogo from "../assets/SmacLogo.png";
+import { generatePvPdf } from "../utils/generatePvPdf";
 
 const HomeScreen = () => {
   const navigate   = useNavigate();
@@ -114,6 +115,7 @@ const HomeScreen = () => {
                   key={pv.id}
                   pv={pv}
                   onClick={() => navigate("/pv/" + pv.id)}
+                  onPdfClick={() => void generatePvPdf(pv)}
                 />
               ))}
               {filtered.length === 0 && (

@@ -4,11 +4,10 @@ import { ArrowLeft, Download, Home, History } from "lucide-react";
 import { usePvStore } from "../../store";
 import { generatePvPdf } from "../../utils/generatePvPdf";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import type { Pv } from "../../types";
 
 const fmtDate = (iso: string) =>
-  format(new Date(iso), "dd MMM yyyy à HH:mm", { locale: fr });
+  format(new Date(iso), "dd/MM/yyyy à HH:mm");
 
 const PvHistoryScreen = () => {
   const { id }      = useParams<{ id: string }>();

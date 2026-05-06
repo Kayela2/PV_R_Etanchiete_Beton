@@ -1,7 +1,6 @@
 // src/components/shared/PvCard.tsx
 import { Building2, Calendar, Landmark } from "lucide-react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import type { Pv } from "../../types";
 import { AGENCES, ETABLISSEMENTS } from "../../data/referentiel";
 
@@ -24,12 +23,12 @@ const PdfIcon = () => (
 );
 
 // ── Composant ─────────────────────────────────────────────────────────────────
-export const PvCard = ({ pv, onClick }: { pv: Pv; onClick?: () => void }) => {
+export const PvCard = ({ pv, onClick, onPdfClick }: { pv: Pv; onClick?: () => void; onPdfClick?: () => void }) => {
   const agence        = AGENCES.find((a) => a.id === pv.step1?.agenceId);
   const etablissement = ETABLISSEMENTS.find((e) => e.id === pv.step1?.etablissementId);
 
   const dateLabel = pv.step1?.dateInspection
-    ? format(new Date(pv.step1.dateInspection), "dd MMM. yyyy", { locale: fr })
+    ? format(new Date(pv.step1.dateInspection), "dd/MM/yyyy")
     : "—";
 
   // Formatage de l'ID : "PV-2024-0892-SMAC" → "PV #2024-0892"
@@ -63,7 +62,17 @@ export const PvCard = ({ pv, onClick }: { pv: Pv; onClick?: () => void }) => {
         }}>
           {idLabel}
         </span>
-        <PdfIcon />
+        {onPdfClick ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPdfClick(); }}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+            title="Télécharger le PDF"
+          >
+            <PdfIcon />
+          </button>
+        ) : (
+          <PdfIcon />
+        )}
       </div>
 
       {/* Nom du chantier */}
