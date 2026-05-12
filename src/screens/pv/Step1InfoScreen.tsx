@@ -128,11 +128,18 @@ const Step1InfoScreen = () => {
             error={errors.agenceId?.message} {...field} />
         )} />
 
-        <Controller name="etablissementId" control={control} render={({ field }) => (
-          <Select label="Établissement" placeholder="Sélectionner l'établissement"
-            options={etablissements.map((e) => ({ value: e.id, label: e.nom }))}
-            disabled={!agenceId} error={errors.etablissementId?.message} {...field} />
-        )} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Controller name="etablissementId" control={control} render={({ field }) => (
+            <Select label="Établissement" placeholder="Sélectionner l'établissement"
+              options={etablissements.map((e) => ({ value: e.id, label: e.nom }))}
+              disabled={!agenceId} error={errors.etablissementId?.message} {...field} />
+          )} />
+          {!agenceId && (
+            <p style={{ fontSize: 11, color: "#E3000F", fontWeight: 600, paddingLeft: 4, margin: 0 }}>
+              Veuillez d'abord sélectionner une agence
+            </p>
+          )}
+        </div>
 
         <Input label="Chantier" placeholder="Nom du projet ou référence client"
           error={errors.chantier?.message} {...register("chantier")} />

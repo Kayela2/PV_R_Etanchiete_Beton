@@ -163,11 +163,16 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
     overflow: "hidden", gap: 28, padding: "0 32px",
   }}>
     <div style={{ position: "relative" }}>
-      <div style={{
-        width: 160, height: 176, backgroundColor: "#fff", borderRadius: 24,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.08)", border: "1px solid #E5E7EB",
-      }}>
+      <button
+        type="button"
+        onClick={onAdd}
+        style={{
+          width: 160, height: 176, backgroundColor: "#fff", borderRadius: 24,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.08)", border: "1px solid #E5E7EB",
+          cursor: "pointer", padding: 0,
+        }}
+      >
         <div style={{
           width: 68, height: 84, backgroundColor: "#F3F4F6", borderRadius: 14,
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -180,7 +185,7 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
             <Plus size={18} color="#E3000F" />
           </div>
         </div>
-      </div>
+      </button>
       <div style={{
         position: "absolute", top: -12, right: -12,
         width: 40, height: 40, backgroundColor: "#fff", borderRadius: 12,
