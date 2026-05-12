@@ -56,9 +56,18 @@ const Step5ParticipantsScreen = () => {
   // ── Autres champs ──────────────────────────────────────────────────────────
   const receptionAcceptee = !hasReserves;
   const today = new Date().toISOString().split("T")[0];
-  const [miseEnConformite, setMiseEnConformite] = useState(
-    step5.miseEnConformiteLe ?? today
-  );
+  const [miseEnConformite, setMiseEnConformite] = useState(() => {
+    const saved = step5.miseEnConformiteLe;
+    if (!saved || saved < today) return today;
+    return saved;
+  });
+
+  // Si on passe en mode "Réception reportée" avec une date passée, on réinitialise à aujourd'hui
+  useEffect(() => {
+    if (!receptionAcceptee && miseEnConformite < today) {
+      setMiseEnConformite(today);
+    }
+  }, [receptionAcceptee]); // eslint-disable-line react-hooks/exhaustive-deps
   const [envoyerEmail, setEnvoyerEmail] = useState(step5.envoyerEmail ?? false);
   const [email, setEmail] = useState(step5.emailDestinataire ?? "");
 
@@ -165,7 +174,7 @@ const Step5ParticipantsScreen = () => {
         signatureSmac: signatureSmac ?? undefined,
         participants: mappedParticipants,
         receptionAcceptee,
-        miseEnConformiteLe: miseEnConformite || undefined,
+        miseEnConformiteLe: receptionAcceptee ? today : (miseEnConformite || undefined),
         envoyerEmail,
         emailDestinataire: email || undefined,
       });
@@ -471,12 +480,20 @@ const Step5ParticipantsScreen = () => {
             </span>
             <input
               type="date"
-              value={miseEnConformite}
-              onChange={(e) => setMiseEnConformite(e.target.value)}
+              lang="fr"
+              value={receptionAcceptee ? today : miseEnConformite}
+              readOnly={receptionAcceptee}
+              min={receptionAcceptee ? undefined : today}
+              onChange={(e) => {
+                if (!receptionAcceptee) setMiseEnConformite(e.target.value);
+              }}
               style={{
-                backgroundColor: "#F3F4F6", borderRadius: 10,
-                padding: "8px 12px", fontSize: 13, color: "#111827",
+                backgroundColor: receptionAcceptee ? "#E5E7EB" : "#F3F4F6",
+                borderRadius: 10,
+                padding: "8px 12px", fontSize: 13,
+                color: receptionAcceptee ? "#6B7280" : "#111827",
                 outline: "none", border: "1.5px solid transparent",
+                cursor: receptionAcceptee ? "not-allowed" : "pointer",
               }}
             />
           </div>

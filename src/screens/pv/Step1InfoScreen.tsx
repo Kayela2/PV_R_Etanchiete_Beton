@@ -140,7 +140,7 @@ const Step1InfoScreen = () => {
         <Input label="Zone / Bâtiment" placeholder="Ex: Bâtiment B - Toiture"
           {...register("zoneBatiment")} />
 
-        <Input label="Date d'inspection" type="date"
+        <Input label="Date d'inspection" type="date" lang="fr"
           {...register("dateInspection")} />
 
         <Input label="Responsable chantier" placeholder="Nom du conducteur de travaux"
