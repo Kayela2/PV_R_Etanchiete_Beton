@@ -91,6 +91,7 @@ const Step5ParticipantsScreen = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Conditions d'affichage progressif ────────────────────────────────────
   const nomFilled      = nomSmac.trim() !== "";
@@ -157,6 +158,7 @@ const Step5ParticipantsScreen = () => {
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
+    setSaveError(null);
     // Capturer l'ID avant que savePv() appelle resetForm() (mode édition)
     const targetPvId = editingPvId ?? undefined;
     try {
@@ -179,33 +181,37 @@ const Step5ParticipantsScreen = () => {
         emailDestinataire: email || undefined,
       });
 
-      savePv();
+      const savedPv = savePv();
 
       // Envoi automatique par email si adresse renseignée
       if (envoyerEmail && email.trim()) {
         try {
-          const lastPv = usePvStore.getState().pvList[0];
-          if (lastPv) {
-            const { blob, filename } = await generatePvPdfBlob(lastPv);
+          // Utiliser le PV réellement sauvegardé (pas forcément pvList[0] en mode édition)
+          const pvForEmail = savedPv ?? usePvStore.getState().pvList[0];
+          if (pvForEmail) {
+            const { blob, filename } = await generatePvPdfBlob(pvForEmail);
             const file = new File([blob], filename, { type: "application/pdf" });
             if (navigator.canShare?.({ files: [file] })) {
               await navigator.share({
                 files: [file],
-                title: `PV SMAC — ${lastPv.step1?.chantier ?? ""}`,
-                text:  `Procès-verbal SMAC — Réf. : ${lastPv.id}`,
+                title: `PV SMAC — ${pvForEmail.step1?.chantier ?? ""}`,
+                text:  `Procès-verbal SMAC — Réf. : ${pvForEmail.id}`,
               });
             } else {
-              const subject = encodeURIComponent(`PV SMAC — ${lastPv.step1?.chantier ?? ""}`);
-              const body    = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le procès-verbal ${lastPv.id}.\n\nCordialement,\nSMAC`);
+              const subject = encodeURIComponent(`PV SMAC — ${pvForEmail.step1?.chantier ?? ""}`);
+              const body    = encodeURIComponent(`Bonjour,\n\nVeuillez trouver ci-joint le procès-verbal ${pvForEmail.id}.\n\nCordialement,\nSMAC`);
               window.open(`mailto:${email}?subject=${subject}&body=${body}`);
             }
           }
         } catch { /* silencieux si l'utilisateur annule le partage */ }
       }
 
-      // Laisser le spinner visible 1.5 s pour l'UX puis afficher l'étape 4
+      // Laisser le spinner visible 1.5 s pour l'UX puis afficher l'étape finale
       await new Promise<void>((r) => setTimeout(r, 1500));
       navigate("/pv-form/step6", { replace: true, state: { pvId: targetPvId } });
+    } catch (err) {
+      console.error("Erreur lors de l'enregistrement :", err);
+      setSaveError("Une erreur est survenue lors de l'enregistrement. Veuillez réessayer.");
     } finally {
       setSaving(false);
     }
@@ -546,6 +552,16 @@ const Step5ParticipantsScreen = () => {
         </div>
 
         {/* ── Actions ── */}
+        {saveError && (
+          <div style={{
+            backgroundColor: "#FEF2F2", border: "1px solid #FECACA",
+            borderRadius: 12, padding: "10px 14px",
+            fontSize: 13, fontWeight: 600, color: "#E3000F",
+          }}>
+            {saveError}
+          </div>
+        )}
+
         <div style={{ display: "flex", gap: 12, paddingBottom: 16 }}>
           <button
             type="button"

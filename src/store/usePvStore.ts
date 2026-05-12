@@ -30,8 +30,11 @@ export const usePvStore = create<PvStore>()(
 
             // Snapshot de l'état actuel AVANT la mise à jour
             const { versions: _v, ...rest } = p;
+            const versionId = typeof crypto?.randomUUID === "function"
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
             const newVersion: PvVersion = {
-              versionId: crypto.randomUUID(),
+              versionId,
               savedAt:   new Date().toISOString(),
               snapshot:  rest,
             };
